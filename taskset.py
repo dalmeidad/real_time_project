@@ -2,8 +2,6 @@
 
 """
 taskset.py - parser for task set from JSON file
-
-Written by: Tanya Amert
 """
 
 import json
@@ -158,9 +156,6 @@ class Task(object):
                 return job
 
         return None
-
-    def getUtilization(self):
-        return self.wcet / self.period
 
     def __str__(self):
         return "task {0}: (Φ,T,C,D) = ({1}, {2}, {3}, {4})".format(self.id, self.offset, self.period, self.wcet, self.relativeDeadline)

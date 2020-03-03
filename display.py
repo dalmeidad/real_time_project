@@ -2,8 +2,6 @@
 
 """
 display.py - display for CS 330 scheduling library
-
-Written by: Tanya Amert
 """
 
 import json

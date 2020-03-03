@@ -2,8 +2,6 @@
 
 """
 schedule.py - parser/serializer for schedule to/from JSON file
-
-Written by: Tanya Amert
 """
 
 import json

@@ -5,8 +5,6 @@ schedulerAlgorithm.py
 
 PriorityQueue: base class for priority queues used to maintain the queue of jobs
 SchedulerAlgorithm: base class for scheduling algorithms
-
-Written by: Tanya Amert
 """
 
 from schedule import Schedule
@@ -77,6 +75,7 @@ class SchedulerAlgorithm(object):
         self.taskSet = taskSet
 
         self.schedule = Schedule(None, taskSet)
+        self.time = 0
 
     def buildSchedule(self):
         raise NotImplementedError()
