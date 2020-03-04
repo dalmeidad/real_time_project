@@ -81,6 +81,7 @@ class EdfScheduler(SchedulerAlgorithm):
     def __init__(self, taskSet, coreSet):
         SchedulerAlgorithm.__init__(self, taskSet, coreSet)
 
+
     def buildSchedule(self, startTime, endTime):
         self._buildPriorityQueue(EdfPriorityQueue)
 
@@ -88,38 +89,51 @@ class EdfScheduler(SchedulerAlgorithm):
         self.schedule.startTime = time
 
         # Previous jobs -- previous job on each core indexed by core id
-        previousJobs = [None in range(len(self.coreSet.m))]
-
+        previousJobs = [None for i in range(self.coreSet.m)]
+        jobsToCore = {}
+        i = 0
         # Loop until the priority queue is empty, executing jobs preemptively in edf order
         while not self.priorityQueue.isEmpty():
             # Make a scheduling decision resulting in an interval
-            interval, newJob, core = self._makeSchedulingDecision(time, previousJobs)
+            interval, newJob, coreId, didFinishPrevious = self._makeSchedulingDecision(time, previousJobs)
 
             nextTime = interval.startTime
+            print('time:', time, 'nextTime:', nextTime)
 
-            # If previous interval wasn't idle, execute job for a single time unit
-            if previousJob is not None:
-                if nextTime - time <= previousJob.remainingTime:
-                    previousJob.execute(nextTime - time)
-                else:
-                    previousJob.executeToCompletion()
+            # If previous interval wasn't idle, execute jobs on each core until next time
+            for previousJob in previousJobs:
+                if previousJob is not None:
+                    if nextTime - time <= previousJob.remainingTime:
+                        previousJob.execute(nextTime - time)
+                    else:
+                        previousJob.executeToCompletion()
+
+                # If a previous job finished, set core activity to not active and pop job core relationship
+                if didFinishPrevious:
+                    core = self.coreSet.getCoreById(coreId)
+                    core.setJob(None)
+                    core.is_active = False
+                    jobsToCore.pop(previousJob.id, None)
 
             # Add interval to the schedule
             self.schedule.addInterval(interval)
 
             # Update the time and job
             time = nextTime
-            previousJob = newJob
+            previousJobs[coreId] = newJob
+            if newJob:
+                jobsToCore[newJob.id] = coreId
+            i += 1
 
-        # If there is still a previous job, complete it and update the time
-        if previousJob is not None:
-            time += previousJob.remainingTime
-            previousJob.executeToCompletion()
-
-        # Add the final idle interval
-        finalInterval = ScheduleInterval()
-        finalInterval.intialize(time, None, False)
-        self.schedule.addInterval(finalInterval)
+        # If there are still previous job, complete them, add intervals
+        for previousJob in previousJobs:
+            if previousJob is not None:
+                time += previousJob.remainingTime
+                previousJob.executeToCompletion()
+                # Add the final idle interval
+                finalInterval = ScheduleInterval()
+                finalInterval.intialize(time, None, False, jobsToCore[previousJob.id])
+                self.schedule.addInterval(finalInterval)
 
         # Post-process the intervals to set the end time and whether the job completed
         latestDeadline = max([job.deadline for job in self.taskSet.jobs])
@@ -140,38 +154,44 @@ class EdfScheduler(SchedulerAlgorithm):
 
         interval = ScheduleInterval()
         didPreemptPrevious = False
+        didFinishPrevious = False
         nextTime = t
-        found_execution_spot = False
 
-        for core in self.coreSet:
-            if found_execution_spot:
-                break
-            if not core.is_executing:
-                found_execution_spot = True
-                newJob = self.priorityQueue.popNextJob(nextTime)
+        # get lowest prio core
+        lowest_core, is_executing = self.coreSet.getLowestPriorityCoreGEDF()
+
+        # Find first inactive core if one exists
+        if not is_executing:
+            print('not is_executing')
+            coreId = lowest_core.id
+            newJob = self.priorityQueue.popNextJob(nextTime)
+            nextTime = newJob.releaseTime
+        else: # Find current lowest priority core to preempt
+            print('is_executing')
+            coreId = lowest_core.id
+            previousJob = lowest_core.job
+            newJob = self.priorityQueue.popNextJob(nextTime)
+            # If there is no job to preempt at or after nextTime, finish job
+            if newJob is None or newJob.deadline >= lowest_core.job.deadline:
+                nextTime += previousJob.remainingTime
+                didFinishPrevious = True
+                # If the job doesn't have a higher prio than the lowest prio, add back to queue
+                if newJob.deadline >= lowest_core.job.deadline:
+                    self.priorityQueue.addJob(newJob)
+                newJob = self.priorityQueue.popFirst(nextTime)
+            else:
+                self.priorityQueue.addJob(lowest_core.job)
+                lowest_core.job = newJob
                 nextTime = newJob.releaseTime
+                didPreemptPrevious = True
 
-        if not found_execution_spot:
-            for previousJob in previousJobs:
-                if previousJob is None:
-                    # Get the next job after time t
-                    newJob = self.priorityQueue.popNextJob(nextTime)
-                    nextTime = newJob.releaseTime
-                else:
-                    # Get the highest priority job at or before nextTime
-                    # nextTime should be either at the end of previous job or the start of a job that preempts it
-                    newJob = self.priorityQueue.popPreemptingJob(nextTime, previousJob)
-                    if newJob is None:
-                        nextTime += previousJob.remainingTime
-                        newJob = self.priorityQueue.popFirst(nextTime)
-                    else:
-                        self.priorityQueue.addJob(previousJob)
-                        didPreemptPrevious = True
-                        nextTime = newJob.releaseTime
+        # update core job
+        lowest_core.setJob(newJob)
 
-        interval.intialize(nextTime, newJob, didPreemptPrevious)
+        # initialize interval
+        interval.intialize(nextTime, newJob, didPreemptPrevious, coreId)
 
-        return interval, newJob, core
+        return interval, newJob, coreId, didFinishPrevious
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
