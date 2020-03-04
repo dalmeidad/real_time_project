@@ -11,6 +11,7 @@ import json
 import sys
 
 from taskset import *
+from coreset import *
 from scheduleralgorithm import *
 from schedule import ScheduleInterval, Schedule
 from display import SchedulingDisplay
@@ -77,9 +78,8 @@ class EdfPriorityQueue(PriorityQueue):
         return self.jobs.pop(hpJobs[0][0]) # get the index from the tuple in the 0th position
 
 class EdfScheduler(SchedulerAlgorithm):
-    def __init__(self, taskSet):
-        SchedulerAlgorithm.__init__(self, taskSet)
-        SchedulerAlgorithm.__init__(self, taskSet)
+    def __init__(self, taskSet, coreSet):
+        SchedulerAlgorithm.__init__(self, taskSet, coreSet)
 
     def buildSchedule(self, startTime, endTime):
         self._buildPriorityQueue(EdfPriorityQueue)
@@ -87,16 +87,15 @@ class EdfScheduler(SchedulerAlgorithm):
         time = 0.0
         self.schedule.startTime = time
 
-        previousJob = None
-        didPreemptPrevious = False
+        # Previous jobs -- previous job on each core indexed by core id
+        previousJobs = [None in range(len(self.coreSet.m))]
 
         # Loop until the priority queue is empty, executing jobs preemptively in edf order
         while not self.priorityQueue.isEmpty():
             # Make a scheduling decision resulting in an interval
-            interval, newJob = self._makeSchedulingDecision(time, previousJob)
+            interval, newJob, core = self._makeSchedulingDecision(time, previousJobs)
 
             nextTime = interval.startTime
-            didPreemptPrevious = interval.didPreemptPrevious
 
             # If previous interval wasn't idle, execute job for a single time unit
             if previousJob is not None:
@@ -129,7 +128,7 @@ class EdfScheduler(SchedulerAlgorithm):
 
         return self.schedule
 
-    def _makeSchedulingDecision(self, t, previousJob):
+    def _makeSchedulingDecision(self, t, previousJobs):
         """
         Makes a scheduling decision after time t.
 
@@ -142,26 +141,37 @@ class EdfScheduler(SchedulerAlgorithm):
         interval = ScheduleInterval()
         didPreemptPrevious = False
         nextTime = t
+        found_execution_spot = False
 
-        if previousJob is None:
-            # Get the next job after time t
-            newJob = self.priorityQueue.popNextJob(nextTime)
-            nextTime = newJob.releaseTime
-        else:
-            # Get the highest priority job at or before nextTime
-            # nextTime should be either at the end of previous job or the start of a job that preempts it
-            newJob = self.priorityQueue.popPreemptingJob(nextTime, previousJob)
-            if newJob is None:
-                nextTime += previousJob.remainingTime
-                newJob = self.priorityQueue.popFirst(nextTime)
-            else:
-                self.priorityQueue.addJob(previousJob)
-                didPreemptPrevious = True
+        for core in self.coreSet:
+            if found_execution_spot:
+                break
+            if not core.is_executing:
+                found_execution_spot = True
+                newJob = self.priorityQueue.popNextJob(nextTime)
                 nextTime = newJob.releaseTime
+
+        if not found_execution_spot:
+            for previousJob in previousJobs:
+                if previousJob is None:
+                    # Get the next job after time t
+                    newJob = self.priorityQueue.popNextJob(nextTime)
+                    nextTime = newJob.releaseTime
+                else:
+                    # Get the highest priority job at or before nextTime
+                    # nextTime should be either at the end of previous job or the start of a job that preempts it
+                    newJob = self.priorityQueue.popPreemptingJob(nextTime, previousJob)
+                    if newJob is None:
+                        nextTime += previousJob.remainingTime
+                        newJob = self.priorityQueue.popFirst(nextTime)
+                    else:
+                        self.priorityQueue.addJob(previousJob)
+                        didPreemptPrevious = True
+                        nextTime = newJob.releaseTime
 
         interval.intialize(nextTime, newJob, didPreemptPrevious)
 
-        return interval, newJob
+        return interval, newJob, core
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
@@ -174,10 +184,13 @@ if __name__ == "__main__":
 
     taskSet = TaskSet(data)
 
+    # Construct CoreSet(m, num_faulty, lambda_c, lambda_b, lambda_r)
+    coreSet = CoreSet()
+
     taskSet.printTasks()
     taskSet.printJobs()
 
-    edf = EdfScheduler(taskSet)
+    edf = EdfScheduler(taskSet, coreSet)
     schedule = edf.buildSchedule(0, 6)
 
     schedule.printIntervals(displayIdle=True)

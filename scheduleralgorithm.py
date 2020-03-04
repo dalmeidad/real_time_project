@@ -71,10 +71,11 @@ class PriorityQueue(object):
         raise NotImplementedError
 
 class SchedulerAlgorithm(object):
-    def __init__(self, taskSet):
+    def __init__(self, taskSet, coreSet):
         self.taskSet = taskSet
+        self.coreSet = coreSet
 
-        self.schedule = Schedule(None, taskSet)
+        self.schedule = Schedule(None, taskSet, coreSet)
         self.time = 0
 
     def buildSchedule(self):

@@ -21,10 +21,12 @@ class ScheduleJsonKeys(object):
     KEY_INTERVAL_TASKID = "taskId"
     KEY_INTERVAL_JOBID = "jobId"
     KEY_INTERVAL_DIDPREEMPT = "didPreempt"
+    KEY_INTERVAL_COREID = "coreId"
 
 class Schedule(object):
-    def __init__(self, data, taskSet):
+    def __init__(self, data, taskSet, coreSet):
         self.taskSet = taskSet
+        self.coreSet = coreSet
         self.intervals = []
 
         if data is not None:
@@ -131,18 +133,20 @@ class ScheduleInterval(object):
             self.taskId = int(intervalDict[ScheduleJsonKeys.KEY_INTERVAL_TASKID])
             self.jobId = int(intervalDict[ScheduleJsonKeys.KEY_INTERVAL_JOBID])
             self.didPreemptPrevious = bool(intervalDict[ScheduleJsonKeys.KEY_INTERVAL_DIDPREEMPT])
+            self.coreId = int(intervalDict[ScheduleJsonKeys.KEY_INTERVAL_COREID])
         else:
             # Default values, needs to be updated
             self.startTime = -1.0
             self.taskId = -1
             self.jobId = -1
             self.didPreemptPrevious = False
+            self.coreId = -1
 
     def updateIntervalEnd(self, endTime, didJobComplete):
         self.endTime = endTime
         self.jobCompleted = didJobComplete and not self.taskId == 0 # "idle" jobs don't complete
 
-    def intialize(self, startTime, job, didPreemptPrevious):
+    def intialize(self, startTime, job, didPreemptPrevious, coreId):
         self.startTime = startTime
 
         if job is not None:
@@ -153,6 +157,7 @@ class ScheduleInterval(object):
             self.jobId = -1
 
         self.didPreemptPrevious = didPreemptPrevious
+        self.coreId = coreId
 
     def isIdle(self):
         return self.taskId == 0

@@ -7,7 +7,7 @@ Written by: Dawson d'Almeida and Justin Washington
 """
 
 class CoreSet(object):
-    def __init__(self, m, num_faulty, lambda_c, lambda_b, lambda_r):
+    def __init__(self, m=1, num_faulty=0, lambda_c=0, lambda_b=0, lambda_r=0):
         self.cores = []
         self.m = m
         self.num_faulty = num_faulty
@@ -42,21 +42,32 @@ class CoreSet(object):
         for core in self:
             print(core, ": " , core.task)
 
+    def getLowestPriorityCore(self):
+        lowest_prio_core = self.cores[0]
+        latest_deadline = lowest_prio_core.job.deadline
+        for core in self.cores:
+            if core.job.deadline > lowest_prio_core.job.deadline:
+                lowest_prio_core = core
+                latest_deadline = core.job.deadline
+        return lowest_prio_core
+
+
 class Core(object):
     def __init__(self, core_id, is_faulty, core_set):
         self.id = core_id
-        self.task = None
+        self.job = None
         self.is_active = True
+        self.is_executing = False
         self.is_faulty = is_faulty
         self.coreSet = core_set
 
 
-    def getTask(self):
-        return self.task
+    def getJob(self):
+        return self.job
 
-    def setTask(self, task):
+    def setJob(self, job):
         if self.is_active:
-            self.task = task
+            self.job = job
             return 1
         return 0
 
