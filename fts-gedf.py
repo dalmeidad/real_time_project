@@ -138,8 +138,6 @@ class EdfScheduler(SchedulerAlgorithm):
                     else:
                         job.execute(1)
 
-
-
                 # Add interval to the schedule
                 self.schedule.addInterval(interval)
 
@@ -157,14 +155,26 @@ class EdfScheduler(SchedulerAlgorithm):
         # If there are still previous job, complete them, add intervals
         for core in self.coreSet:
             previousJob = coresToJobs[core.id]
-            # time = coreToTime[core.id]
-            if previousJob is not None:
-                time += previousJob.remainingTime
-                previousJob.executeToCompletion()
-                # Add the final idle interval
-                finalInterval = ScheduleInterval()
-                finalInterval.intialize(time, time+1, None, False, core.id, False)
-                self.schedule.addInterval(finalInterval)
+            cur_time = time
+            while previousJob.remainingTime > 0:
+                if previousJob is not None:
+                    job_complete = False
+                    print(cur_time, previousJob, previousJob.remainingTime)
+                    if previousJob.remainingTime <= 1:
+                        previousJob.executeToCompletion()
+                        job_complete = True
+                    else:
+                        previousJob.execute(1)
+                    # Add the final idle interval
+                    interval = ScheduleInterval()
+                    interval.intialize(cur_time, cur_time+1, previousJob, False, core.id, job_complete)
+                    self.schedule.addInterval(interval)
+                    cur_time += 1
+            # Add empty interval at end of each one
+            finalInterval = ScheduleInterval()
+            finalInterval.intialize(cur_time, cur_time+1, None, False, core.id, job_complete)
+            self.schedule.addInterval(finalInterval)
+
 
         # Post-process the intervals to set the end time and whether the job completed
         latestDeadline = max([job.deadline for job in self.taskSet.jobs])
@@ -200,7 +210,6 @@ class EdfScheduler(SchedulerAlgorithm):
 
         # update core job
         lowest_core.setJob(newJob)
-        print(t, newJob, previousJob, willFinish)
         # initialize interval
         interval.intialize(t, t+1, newJob, didPreemptPrevious, lowest_core.id, willFinish)
 
