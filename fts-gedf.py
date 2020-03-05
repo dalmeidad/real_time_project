@@ -156,8 +156,8 @@ class EdfScheduler(SchedulerAlgorithm):
         for core in self.coreSet:
             previousJob = coresToJobs[core.id]
             cur_time = time
-            while previousJob.remainingTime > 0:
-                if previousJob is not None:
+            if previousJob is not None:
+                while previousJob.remainingTime > 0:
                     job_complete = False
                     print(cur_time, previousJob, previousJob.remainingTime)
                     if previousJob.remainingTime <= 1:
@@ -243,5 +243,8 @@ if __name__ == "__main__":
     schedule.checkWcets()
     schedule.checkFeasibility()
 
-    display = SchedulingDisplay(width=800, height=480, fps=33, scheduleData=schedule)
-    display.run()
+    displayTasks = SchedulingDisplay(width=800, height=480, fps=33, scheduleData=schedule, display_type='tasks')
+    displayTasks.run()
+
+    displayCores = SchedulingDisplay(width=800, height=480, fps=33, scheduleData=schedule, display_type='cores')
+    displayCores.run()

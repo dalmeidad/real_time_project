@@ -143,7 +143,7 @@ class XAxis(object):
             labelSurface = font.render(text, True, color)
             surface.blit(labelSurface, (px, py))
 
-class YAxis(object):
+class YAxisTasks(object):
     def __init__(self, taskSet, startTime, endTime, w, h):
         self.build_grid_lines(len(taskSet), w, h)
         self.build_labels(taskSet, w, h)
@@ -198,11 +198,66 @@ class YAxis(object):
             labelSurface = font.render(text, True, color)
             surface.blit(labelSurface, (px, py))
 
+class YAxisCores(object):
+    def __init__(self, coreSet, startTime, endTime, w, h):
+        self.build_grid_lines(len(coreSet), w, h)
+        self.build_labels(coreSet, w, h)
+
+    def build_grid_lines(self, numTasks, w, h):
+        # Put a horizontal line between each task
+        plotHeight = h - BUFFER_TOP  - BUFFER_BOTTOM
+        plotBottom = h - BUFFER_BOTTOM
+        coreHeight = plotHeight / numTasks
+        self.gridlines = []
+        for i in range(1, numTasks):
+            py = plotBottom - i * coreHeight + LINE_WIDTH
+
+            p1x = BUFFER_LEFT
+            p2x = w - BUFFER_RIGHT
+
+            # Store the line as a tuple of pos tuples, and the line width:
+            # (p1, p2, w)
+            gridline = ((p1x, py), (p2x, py), LINE_WIDTH)
+            self.gridlines.append(gridline)
+
+    def build_labels(self, coreSet, w, h):
+        numCores = len(coreSet)
+        plotHeight = h - BUFFER_TOP - BUFFER_BOTTOM
+        plotBottom = h - BUFFER_BOTTOM
+        coreHeight = plotHeight / numCores
+        font = pygame.font.SysFont("mono", int(30 * (h / 720)), bold=USE_BOLD_FONT)
+        self.labels = []
+        for (i, core) in enumerate(coreSet):
+            px = int(BUFFER_LEFT * 0.8)
+            py = plotBottom - (numCores - i - 1) * coreHeight - int(0.5 * coreHeight)
+
+            # Store the text as a tuple of the string, pos tuple, and font:
+            # (s, pos, font)
+            label = ("π{0}".format(core.id),  (px, py+coreHeight/4), font)
+            self.labels.append(label)
+
+    def draw(self, surface):
+        # Draw the grid lines
+        for gridline in self.gridlines:
+            p1, p2, lineWidth = gridline
+            pygame.draw.line(surface, SchedulingDisplayColors.TIME_BAR, p1, p2, lineWidth)
+
+        # Draw the cores' labels
+        for label in self.labels:
+            text, pos, font = label
+            fw, fh = font.size(text)
+            px = pos[0] - fw
+            py = pos[1]
+            color = SchedulingDisplayColors.TASK_LABEL
+
+            labelSurface = font.render(text, True, color)
+            surface.blit(labelSurface, (px, py))
+
 ##################################################################
 ##  Interval display elements                                   ##
 ##################################################################
 
-class IntervalRect(object):
+class IntervalRectTasks(object):
     def __init__(self, interval, startTime, endTime, numTasks, w, h, color):
         self.build_rectangle(interval, startTime, endTime, numTasks, w, h, color)
 
@@ -236,6 +291,47 @@ class IntervalRect(object):
         lineColor = SchedulingDisplayColors.INTERVAL_BORDER
 
         pygame.draw.rect(surface, fillColor, self.rect, 0)
+        pygame.draw.rect(surface, lineColor, self.rect, lineWidth)
+
+
+class IntervalRectCores(object):
+    def __init__(self, interval, startTime, endTime, numCores, w, h, color):
+        self.build_rectangle(interval, startTime, endTime, numCores, w, h, color)
+        if color:
+            self.fillColor = color
+        else:
+            self.fillColor = SchedulingDisplayColors.INTERVAL_FILL
+
+
+    def build_rectangle(self, interval, startTime, endTime, numCores, w, h, color):
+        plotHeight = h - BUFFER_TOP - BUFFER_BOTTOM
+        plotBottom = h - BUFFER_BOTTOM
+        coreHeight = plotHeight / numCores
+
+        intervalBottom = plotBottom - int(numCores - ((interval.coreId-1) * coreHeight))
+        intervalHeight = int(coreHeight * 0.4)
+        intervalTop = intervalBottom - intervalHeight
+
+        totalTime = endTime - startTime
+        p1x = int(float(interval.startTime - startTime) / totalTime * (w-BUFFER_LEFT-BUFFER_RIGHT)) + BUFFER_LEFT
+        p1y = intervalBottom - intervalHeight
+
+        rectW = int(float(interval.endTime - startTime) / totalTime * (w-BUFFER_LEFT-BUFFER_RIGHT)) + BUFFER_LEFT - p1x - 1 # open interval on RHS
+        rectH = intervalHeight
+
+        # Store the rect as a tuple: (x1, y1, width, height)
+        self.rect = (p1x, p1y, rectW, rectH)
+
+        # Draw the outline separately
+        self.outlineWidth = LINE_WIDTH
+
+    def draw(self, surface):
+        px, py, w, h = self.rect
+
+        lineWidth = self.outlineWidth
+        lineColor = SchedulingDisplayColors.INTERVAL_BORDER
+
+        pygame.draw.rect(surface, self.fillColor, self.rect, 0)
         pygame.draw.rect(surface, lineColor, self.rect, lineWidth)
 
 ##################################################################
@@ -387,7 +483,7 @@ class SchedulingDisplayColors(object):
         INTERVAL_FILL   = (  0, 128, 255)  # blue
 
 class SchedulingDisplay(object):
-    def __init__(self, width=1080, height=720, fps=30, scheduleData=None):
+    def __init__(self, width=1080, height=720, fps=30, scheduleData=None, display_type='tasks'):
         pygame.init()
         pygame.display.set_caption("CS 330 Scheduling Display")
 
@@ -403,6 +499,7 @@ class SchedulingDisplay(object):
         self.fps = fps
 
         self.scheduleData = scheduleData
+        self.display_type = display_type
 
     def parse_input(self):
         """
@@ -430,16 +527,20 @@ class SchedulingDisplay(object):
             self.clock.tick(self.fps)
 
             if self.scheduleData is not None:
-                self.draw_schedule()
+                if self.display_type == 'tasks':
+                    self.draw_schedule_tasks()
+                    self.draw_axes_tasks()
+                else:
+                    self.draw_schedule_cores()
+                    self.draw_axes_cores()
 
-            self.draw_axes()
 
             pygame.display.flip()
             self.screen.blit(self.background, (0, 0))
 
         pygame.quit()
 
-    def draw_schedule(self):
+    def draw_schedule_tasks(self):
         numTasks = len(self.scheduleData.taskSet)
         scheduleStartTime = self.scheduleData.startTime
         scheduleEndTime = self.scheduleData.endTime
@@ -448,7 +549,7 @@ class SchedulingDisplay(object):
             if interval.taskId == 0:
                 continue
 
-            intervalRect = IntervalRect(interval, scheduleStartTime, scheduleEndTime, numTasks, self.width, self.height, None)
+            intervalRect = IntervalRectTasks(interval, scheduleStartTime, scheduleEndTime, numTasks, self.width, self.height, None)
             intervalRect.draw(self.background)
 
         for task in self.scheduleData.taskSet:
@@ -466,12 +567,34 @@ class SchedulingDisplay(object):
                 completionHat = CompletionHat(interval.endTime, interval.taskId, numTasks, scheduleStartTime, scheduleEndTime, self.width, self.height, None)
                 completionHat.draw(self.background)
 
-    def draw_axes(self):
+    def draw_schedule_cores(self):
+        numCores = len(self.scheduleData.coreSet)
+        scheduleStartTime = self.scheduleData.startTime
+        scheduleEndTime = self.scheduleData.endTime
+
+        for (i, interval) in enumerate(reversed(self.scheduleData.intervals)):
+            if interval.taskId == 0:
+                continue
+
+            color = ((interval.taskId * 50 % 255), (interval.taskId * 50 % 255), 0)
+            intervalRect = IntervalRectCores(interval, scheduleStartTime, scheduleEndTime, numCores, self.width, self.height, color)
+            intervalRect.draw(self.background)
+
+
+    def draw_axes_tasks(self):
         if self.scheduleData is not None:
             xaxis = XAxis(self.scheduleData.startTime, self.scheduleData.endTime, self.width, self.height)
             xaxis.draw(self.background)
 
-            yaxis = YAxis(self.scheduleData.taskSet, self.scheduleData.startTime, self.scheduleData.endTime, self.width, self.height)
+            yaxis = YAxisTasks(self.scheduleData.taskSet, self.scheduleData.startTime, self.scheduleData.endTime, self.width, self.height)
+            yaxis.draw(self.background)
+
+    def draw_axes_cores(self):
+        if self.scheduleData is not None:
+            xaxis = XAxis(self.scheduleData.startTime, self.scheduleData.endTime, self.width, self.height)
+            xaxis.draw(self.background)
+
+            yaxis = YAxisCores(self.scheduleData.coreSet, self.scheduleData.startTime, self.scheduleData.endTime, self.width, self.height)
             yaxis.draw(self.background)
 
 if __name__ == '__main__':
@@ -492,6 +615,8 @@ if __name__ == '__main__':
 
     schedule.printIntervals()
 
-    display = SchedulingDisplay(width=600, height=480, fps=33, scheduleData=schedule)
+    displayTasks = SchedulingDisplay(width=800, height=480, fps=33, scheduleData=schedule, display_type='tasks')
+    displayCores = SchedulingDisplay(width=800, height=480, fps=33, scheduleData=schedule, display_type='cores')
 
-    display.run()
+    displayTasks.run()
+    displayCores.run()

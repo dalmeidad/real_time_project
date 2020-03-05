@@ -17,7 +17,7 @@ class CoreSetIterator:
         return self.coreSet.cores[key]
 
 class CoreSet(object):
-    def __init__(self, m=2, num_faulty=0, lambda_c=0, lambda_b=0, lambda_r=0):
+    def __init__(self, m=3, num_faulty=0, lambda_c=0, lambda_b=0, lambda_r=0):
         self.cores = {}
         self.m = m
         self.num_faulty = num_faulty
