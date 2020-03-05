@@ -17,7 +17,7 @@ class CoreSetIterator:
         return self.coreSet.cores[key]
 
 class CoreSet(object):
-    def __init__(self, m=1, num_faulty=0, lambda_c=0, lambda_b=0, lambda_r=0):
+    def __init__(self, m=2, num_faulty=0, lambda_c=0, lambda_b=0, lambda_r=0):
         self.cores = {}
         self.m = m
         self.num_faulty = num_faulty
@@ -55,17 +55,19 @@ class CoreSet(object):
         for core in self:
             print(core, ": " , core.task)
 
-    def getLowestPriorityCoreGEDF(self):
+    def getLowestPriorityCoreGEDF(self, coreList):
         '''
         Returns the core with the lowest priority job executing or a currently not-executing
         core and a boolean representing whether or not the core is executing
+        This excludes the cores in the input array
         '''
-        lowest_prio_core = self.cores[0]
+        lowest_prio_core = self.getCoreById(coreList[0])
         is_executing = lowest_prio_core.is_executing
         # If first core isn't executing, return it
         if not is_executing:
             return lowest_prio_core, False
-        for core in self:
+        for coreId in coreList:
+            core = self.getCoreById(coreId)
             if core.is_executing:
                 if core.job.deadline > lowest_prio_core.job.deadline:
                     lowest_prio_core = core

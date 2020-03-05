@@ -63,7 +63,7 @@ class Schedule(object):
         for (i, interval) in enumerate(self.intervals):
             if i < len(self.intervals) - 1:
                 nextInterval = self.intervals[i+1]
-                interval.updateIntervalEnd(nextInterval.startTime, not nextInterval.didPreemptPrevious)
+                interval.updateIntervalEnd(nextInterval.startTime, interval.jobCompleted)
             else:
                 interval.updateIntervalEnd(self.endTime, False)
 
@@ -141,12 +141,13 @@ class ScheduleInterval(object):
             self.jobId = -1
             self.didPreemptPrevious = False
             self.coreId = -1
+            self.jobCompleted = False
 
     def updateIntervalEnd(self, endTime, didJobComplete):
-        self.endTime = endTime
+        #self.endTime = endTime
         self.jobCompleted = didJobComplete and not self.taskId == 0 # "idle" jobs don't complete
 
-    def intialize(self, startTime, job, didPreemptPrevious, coreId):
+    def intialize(self, startTime, endTime, job, didPreemptPrevious, coreId, jobCompleted):
         self.startTime = startTime
 
         if job is not None:
@@ -158,6 +159,8 @@ class ScheduleInterval(object):
 
         self.didPreemptPrevious = didPreemptPrevious
         self.coreId = coreId
+        self.endTime = endTime
+        self.jobCompleted = jobCompleted
 
     def isIdle(self):
         return self.taskId == 0

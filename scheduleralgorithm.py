@@ -58,6 +58,9 @@ class PriorityQueue(object):
         if index >= 0:
             return self.jobs.pop(index)
 
+    def _popJob(self, t):
+        raise NotImplementedError
+
     def _sortQueue(self):
         raise NotImplementedError
 
