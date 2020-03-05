@@ -179,8 +179,10 @@ class EdfScheduler(SchedulerAlgorithm):
         # Post-process the intervals to set the end time and whether the job completed
         latestDeadline = max([job.deadline for job in self.taskSet.jobs])
         endTime = max(time + 1.0, latestDeadline, float(endTime))
+        self.schedule.intervals.sort(key = lambda x: (x.coreId, x.startTime))
+        self.schedule.printIntervals(displayIdle = True)
         self.schedule.postProcessIntervals(endTime)
-
+        
         return self.schedule
 
     def _makeSchedulingDecision(self, t, previousJob, lowest_core):

@@ -56,11 +56,11 @@ class CoreSet(object):
             print(core, ": " , core.task)
 
     def getLowestPriorityCoreGEDF(self, coreList):
-        '''
-        Returns the core with the lowest priority job executing or a currently not-executing
-        core and a boolean representing whether or not the core is executing
-        This excludes the cores in the input array
-        '''
+        """
+        Returns the core in coreList with the lowest priority job executing 
+        or a currently not-executing core and a boolean representing whether 
+        or not the core is executing
+        """
         lowest_prio_core = self.getCoreById(coreList[0])
         is_executing = lowest_prio_core.is_executing
         # If first core isn't executing, return it

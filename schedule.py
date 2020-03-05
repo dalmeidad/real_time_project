@@ -29,10 +29,11 @@ class Schedule(object):
         self.coreSet = coreSet
         self.intervals = []
 
-        if data is not None:
+        if data is not None: #When SchedulerAlgorithm is initialized, data is always NONE
             # If the schedule has been provided in JSON, parse it
             self.parseJson(data)
 
+    #we don't use this
     def parseJson(self, data):
         if ScheduleJsonKeys.KEY_SCHEDULE not in data:
             print("Error: Missing schedule info")
@@ -43,6 +44,7 @@ class Schedule(object):
 
         self.parseDataToIntervals(scheduleData)
 
+    #we don't use this
     def parseDataToIntervals(self, scheduleData):
         intervals = []
 
@@ -55,12 +57,36 @@ class Schedule(object):
         endTime = float(scheduleData[ScheduleJsonKeys.KEY_SCHEDULE_END])
         self.postProcessIntervals(endTime)
 
+    #this is called at the very end of each SchedulerAlgorithm's buildSchedule fn
     def postProcessIntervals(self, endTime):
         self.endTime = endTime
 
+        self.intervals.sort(key = lambda x: (x.coreId, x.startTime))
         # Post-process the intervals, setting the end time and whether
         # the job was completed based on the following interval
         for (i, interval) in enumerate(self.intervals):
+            #first, find contiguous intervals for all intervals except the last one in the sorted list
+            if i != len(self.intervals)-1:
+                s = self.intervals[i]
+                oneMoreThanLastIndex = i+1
+                t = self.intervals[oneMoreThanLastIndex]
+                #find last index + 1
+                while s.taskId is t.taskId and s.jobId is t.jobId and s.coreId is t.coreId:
+                    oneMoreThanLastIndex = oneMoreThanLastIndex+1
+                    if oneMoreThanLastIndex < len(self.intervals):
+                        t = self.intervals[oneMoreThanLastIndex]
+                    else:
+                        break
+                #update actual start interval
+                print(len(self.intervals), oneMoreThanLastIndex)
+                lastIndex = oneMoreThanLastIndex-1
+                if i < lastIndex:
+                    self.intervals[i].endTime = self.intervals[lastIndex].endTime
+                    self.intervals[i].didPreemptPrevious = self.intervals[lastIndex].didPreemptPrevious
+                    self.intervals[i].jobCompleted = self.intervals[lastIndex].jobCompleted
+                    #remove the intervals we just combined into the actual start interval
+                    del self.intervals[i+1:oneMoreThanLastIndex] #exclusive del [)
+
             if i < len(self.intervals) - 1:
                 nextInterval = self.intervals[i+1]
                 interval.updateIntervalEnd(nextInterval.startTime, interval.jobCompleted)
@@ -167,9 +193,9 @@ class ScheduleInterval(object):
 
     def __str__(self):
         if not self.isIdle():
-            return "interval [{0},{1}): task {2}, job {3} (completed: {4}, preempted previous: {5})".format(self.startTime, self.endTime, self.taskId, self.jobId, self.jobCompleted, self.didPreemptPrevious)
+            return "interval [{0},{1}): task {2}, job {3} on core {6} (completed: {4}, preempted previous: {5})".format(self.startTime, self.endTime, self.taskId, self.jobId, self.jobCompleted, self.didPreemptPrevious, self.coreId)
         else:
-            return "interval [{0},{1}): IDLE (completed: {2}, preempted previous: {3})".format(self.startTime, self.endTime, self.jobCompleted, self.didPreemptPrevious)
+            return "interval [{0},{1}): IDLE on core {4} (completed: {2}, preempted previous: {3})".format(self.startTime, self.endTime, self.jobCompleted, self.didPreemptPrevious, self.coreId)
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
