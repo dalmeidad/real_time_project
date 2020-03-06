@@ -28,6 +28,7 @@ class EdfPriorityQueue(PriorityQueue):
         # EDF orders by absolute deadline
         self.jobs.sort(key = lambda x: (x.deadline, x.task.id, x.id))
 
+    #we don't use this
     def _findFirst(self, t):
         """
         Returns the index of the highest-priority job released at or before t,
@@ -97,7 +98,7 @@ class EdfPriorityQueue(PriorityQueue):
         hpJobs.sort(key = lambda x: (x[1].releaseTime, x[1].deadline, x[1].task.id))
         return self.jobs.pop(hpJobs[0][0]) # get the index from the tuple in the 0th position
 
-class EdfScheduler(SchedulerAlgorithm):
+class FtmGedfScheduler(SchedulerAlgorithm):
     def __init__(self, taskSet, coreSet):
         SchedulerAlgorithm.__init__(self, taskSet, coreSet)
 
@@ -114,17 +115,39 @@ class EdfScheduler(SchedulerAlgorithm):
         coresToJobs = {}
         jobsToCore = {}
 
+        #tracks if the core is in a bursty period. Fault periods are (lB, lG)
+        #where intially: lB = [time, time+lBdur) and lG = [time+lBdur, time+lBdur+lGdur)
+        coreFaultPeriods = {}
+        coresToBursty = {}
+        coreLastFaultPeriodStart = {}
+
         for core in self.coreSet:
             coresToJobs[core.id] = None
+            coreFaultPeriods[core.id] = (0,0)
+            coreLastFaultPeriodStart[core.id] = 0
+            coresToBursty[core.id] = False
 
         # Loop until the priority queue is empty, executing jobs preemptively in edf order
         while not self.priorityQueue.isEmpty():
-
-            # iterate through coreList
-            coreList = list(self.coreSet.cores.keys())
-            while len(coreList) > 0:
+            #set bursty periods 
+            #currently each core can have a different lB and lG. Can be easily changed to identical
+            print("At time {0}".format(time))
+            for core in self.coreSet:
+                if core.is_faulty:
+                    if time == coreLastFaultPeriodStart[core.id] + sum(coreFaultPeriods[core.id]):
+                        coreLastFaultPeriodStart[core.id] = time
+                        newLB = self.coreset.getLB()
+                        newLG = self.coreset.getLG()
+                        coreFaultPeriods[coreId] = (newLB, newLG)
+                    coresToBursty[core.id] = time < coreLastFaultPeriod + coreFaultPeriods[core.id][0] #lB
+                print(core)
+            
+            # for iterating through cores by Id
+            coreListIds = list(self.coreSet.cores.keys())
+            #build schedule from the queue
+            while len(coreListIds) > 0:
                 # get the current lowest priority core of the remaining cores
-                core, is_executing = self.coreSet.getLowestPriorityCoreGEDF(coreList)
+                core, is_executing = self.coreSet.getLowestPriorityCoreGEDF(coreListIds)
                 coreId = core.id
 
                 previousJob = core.getJob()
@@ -148,7 +171,7 @@ class EdfScheduler(SchedulerAlgorithm):
                     jobsToCore[job.id] = coreId
 
                 # remove core from current core list to consider
-                coreList.remove(coreId)
+                coreListIds.remove(coreId)
 
             time += 1
 
@@ -156,8 +179,8 @@ class EdfScheduler(SchedulerAlgorithm):
         for core in self.coreSet:
             previousJob = coresToJobs[core.id]
             cur_time = time
-            while previousJob.remainingTime > 0:
-                if previousJob is not None:
+            if previousJob is not None:
+                while previousJob.remainingTime > 0:
                     job_complete = False
                     print(cur_time, previousJob, previousJob.remainingTime)
                     if previousJob.remainingTime <= 1:
@@ -179,11 +202,10 @@ class EdfScheduler(SchedulerAlgorithm):
         # Post-process the intervals to set the end time and whether the job completed
         latestDeadline = max([job.deadline for job in self.taskSet.jobs])
         endTime = max(time + 1.0, latestDeadline, float(endTime))
-        self.schedule.intervals.sort(key = lambda x: (x.coreId, x.startTime))
-        self.schedule.printIntervals(displayIdle = True)
         self.schedule.postProcessIntervals(endTime)
         
         return self.schedule
+
 
     def _makeSchedulingDecision(self, t, previousJob, lowest_core):
         """
@@ -226,7 +248,7 @@ if __name__ == "__main__":
     with open(file_path) as json_data:
         data = json.load(json_data)
 
-    taskSet = TaskSet(data)
+    taskSet = TaskSet(data)#, active_backups=1)
 
     # Construct CoreSet(m, num_faulty, lambda_c, lambda_b, lambda_r)
     coreSet = CoreSet()
@@ -234,14 +256,14 @@ if __name__ == "__main__":
     taskSet.printTasks()
     taskSet.printJobs()
 
-    edf = EdfScheduler(taskSet, coreSet)
-    schedule = edf.buildSchedule(0, 6)
+    ftm = FtmGedfScheduler(taskSet, coreSet)
+    schedule = ftm.buildSchedule(0, 6)
 
     schedule.printIntervals(displayIdle=True)
 
-    print("\n// Validating the schedule:")
-    schedule.checkWcets()
-    schedule.checkFeasibility()
+    # print("\n// Validating the schedule:")
+    # schedule.checkWcets()
+    # schedule.checkFeasibility()
 
     display = SchedulingDisplay(width=800, height=480, fps=33, scheduleData=schedule)
     display.run()

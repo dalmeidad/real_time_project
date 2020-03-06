@@ -78,7 +78,6 @@ class Schedule(object):
                     else:
                         break
                 #update actual start interval
-                print(len(self.intervals), oneMoreThanLastIndex)
                 lastIndex = oneMoreThanLastIndex-1
                 if i < lastIndex:
                     self.intervals[i].endTime = self.intervals[lastIndex].endTime
@@ -95,6 +94,13 @@ class Schedule(object):
 
     def addInterval(self, interval):
         self.intervals.append(interval)
+
+    def addFailInterval(self, startTime, endTime, coreId):
+        failInterval = ScheduleInterval()
+        #TODO:make sure this works later.... maybe did preempt previous should be false?
+        failInterval.initialize(startTime, endTime, -1, True, coreId)
+
+
 
     def printIntervals(self, displayIdle=True):
         print("\nScheduling intervals:")
@@ -179,6 +185,9 @@ class ScheduleInterval(object):
         if job is not None:
             self.taskId = job.task.id
             self.jobId = job.id
+        elif job is -1: #handles Fail periods
+            self.taskId = -1
+            self.taskId = -1
         else:
             self.taskId = 0
             self.jobId = -1
@@ -190,12 +199,17 @@ class ScheduleInterval(object):
 
     def isIdle(self):
         return self.taskId == 0
+    
+    def isFail(self):
+        return self.taskId == -1
 
     def __str__(self):
-        if not self.isIdle():
-            return "interval [{0},{1}): task {2}, job {3} on core {6} (completed: {4}, preempted previous: {5})".format(self.startTime, self.endTime, self.taskId, self.jobId, self.jobCompleted, self.didPreemptPrevious, self.coreId)
+        if self.isIdle():
+            return "interval [{0},{1}): core {4} is IDLE (completed: {2}, preempted previous: {3})".format(self.startTime, self.endTime, self.jobCompleted, self.didPreemptPrevious, self.coreId)
+        elif self.isFail():
+            return "interval [{0},{1}): core {4} is INACTIVE(completed: {2}, preempted previous: {3})".format(self.startTime, self.endTime, self.jobCompleted, self.didPreemptPrevious, self.coreId)
         else:
-            return "interval [{0},{1}): IDLE on core {4} (completed: {2}, preempted previous: {3})".format(self.startTime, self.endTime, self.jobCompleted, self.didPreemptPrevious, self.coreId)
+            return "interval [{0},{1}): core {6} is executing task {2}, job {3} (completed: {4}, preempted previous: {5})".format(self.startTime, self.endTime, self.taskId, self.jobId, self.jobCompleted, self.didPreemptPrevious, self.coreId)
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

@@ -38,9 +38,16 @@ class TaskSetIterator:
         return self.taskSet.tasks[key]
 
 class TaskSet(object):
-    def __init__(self, data):
+    def __init__(self, data, active_backups=0):
         self.parseDataToTasks(data)
         self.buildJobReleases(data)
+        self.num_active_backups = active_backups
+        self.passive_backups = self.jobs
+        primary_and_actives = self.jobs
+        counter = active_backups
+        while active_backups is not 0:
+            primary_and_actives += self.jobs
+        self.jobs = primary_and_actives
 
     def parseDataToTasks(self, data):
         taskSet = {}
@@ -105,7 +112,7 @@ class TaskSet(object):
             print(task)
 
     def printJobs(self):
-        print("\nJobs:")
+        print("\nJobs: (each has {0} active backups)".format(self.num_active_backups))
         for task in self:
             for job in task.getJobs():
                 print(job)

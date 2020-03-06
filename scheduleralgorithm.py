@@ -79,7 +79,7 @@ class SchedulerAlgorithm(object):
         self.coreSet = coreSet
 
         self.schedule = Schedule(None, taskSet, coreSet)
-        self.time = 0
+        self.time = 0 #TODO:do we need this?
 
     def buildSchedule(self):
         raise NotImplementedError()
