@@ -265,5 +265,8 @@ if __name__ == "__main__":
     # schedule.checkWcets()
     # schedule.checkFeasibility()
 
-    display = SchedulingDisplay(width=800, height=480, fps=33, scheduleData=schedule)
-    display.run()
+    displayTasks = SchedulingDisplay(width=800, height=480, fps=33, scheduleData=schedule, display_type='tasks')
+    displayTasks.run()
+
+    displayCores = SchedulingDisplay(width=800, height=480, fps=33, scheduleData=schedule, display_type='cores')
+    displayCores.run()
