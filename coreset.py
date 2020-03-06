@@ -18,7 +18,7 @@ class CoreSetIterator:
         return self.coreSet.cores[key]
 
 class CoreSet(object):
-    def __init__(self, m=2, num_faulty=0, bursty_chance=0.0, fault_period_scaler=3, lambda_c=0, lambda_b=0, lambda_r=0):
+    def __init__(self, m=1, num_faulty=0, bursty_chance=0.0, fault_period_scaler=3, lambda_c=0.02, lambda_b=0.4, lambda_r=0.15):
         self.cores = {}
         self.m = m
         self.num_faulty = num_faulty
@@ -133,12 +133,12 @@ class Core(object):
     def getIsActive(self):
         return self.is_active
 
-    def deactivateCore(self):
+    def deactivate(self):
         if self.is_faulty:
             self.is_active = False
             self.is_executing = False
 
-    def activateCore(self):
+    def activate(self):
         self.is_active = True
 
 

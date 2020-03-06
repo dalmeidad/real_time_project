@@ -10,6 +10,7 @@ EdfScheduler: scheduling algorithm that executes EDF (preemptive)
 import json
 import sys
 import math
+import random
 
 from taskset import *
 from coreset import *
@@ -120,12 +121,15 @@ class FtmGedfScheduler(SchedulerAlgorithm):
         coreFaultPeriods = {}
         coresToBursty = {}
         coreLastFaultPeriodStart = {}
+        corePermFail = {}
 
         for core in self.coreSet:
             coresToJobs[core.id] = None
             coreFaultPeriods[core.id] = (0,0)
             coreLastFaultPeriodStart[core.id] = 0
             coresToBursty[core.id] = False
+            corePermFail[core.id] = False
+
 
         # Loop until the priority queue is empty, executing jobs preemptively in edf order
         while not self.priorityQueue.isEmpty():
@@ -138,17 +142,26 @@ class FtmGedfScheduler(SchedulerAlgorithm):
                         coreLastFaultPeriodStart[core.id] = time
                         newLB = self.coreset.getLB()
                         newLG = self.coreset.getLG()
-                        coreFaultPeriods[coreId] = (newLB, newLG)
+                        coreFaultPeriods[core.id] = (newLB, newLG)
                     coresToBursty[core.id] = time < coreLastFaultPeriod + coreFaultPeriods[core.id][0] #lB
+                cutoff = random.random()
+                if cutoff < core.coreSet.lambda_c:
+                    corePermFail[core.id] = True
+                    core.deactivate()
+                elif (coresToBursty[core.id] and cutoff < core.coreSet.lambda_b) or \
+                     (not coresToBursty[core.id] and cutoff < core.coreSet.lambda_r):
+                    core.deactivate()
+                else:
+                    core.activate()
                 print(core)
-            
+            #TODO: need a way to keep permFailCores from doing anything
+            #TODO: track finished jobs and remove unreleased ones from queue
             # for iterating through cores by Id
-            coreListIds = list(self.coreSet.cores.keys())
+            coreListIds = [core.id for core in self.coreSet if not corePermFail[core.id]]
             #build schedule from the queue
             while len(coreListIds) > 0:
                 # get the current lowest priority core of the remaining cores
                 core, is_executing = self.coreSet.getLowestPriorityCoreGEDF(coreListIds)
-                coreId = core.id
 
                 previousJob = core.getJob()
                 # Make a scheduling decision resulting in an interval
@@ -165,13 +178,13 @@ class FtmGedfScheduler(SchedulerAlgorithm):
                 self.schedule.addInterval(interval)
 
                 # Update the time and job
-                coresToJobs[coreId] = job
+                coresToJobs[core.id] = job
                 core.setJob(job)
                 if job:
-                    jobsToCore[job.id] = coreId
+                    jobsToCore[job.id] = core.id
 
                 # remove core from current core list to consider
-                coreListIds.remove(coreId)
+                coreListIds.remove(core.id)
 
             time += 1
 
@@ -195,7 +208,7 @@ class FtmGedfScheduler(SchedulerAlgorithm):
                     cur_time += 1
             # Add empty interval at end of each one
             finalInterval = ScheduleInterval()
-            finalInterval.intialize(cur_time, cur_time+1, None, False, core.id, job_complete)
+            finalInterval.intialize(cur_time, cur_time+1, None, False, core.id, False)
             self.schedule.addInterval(finalInterval)
 
 
@@ -248,10 +261,10 @@ if __name__ == "__main__":
     with open(file_path) as json_data:
         data = json.load(json_data)
 
-    taskSet = TaskSet(data)#, active_backups=1)
+    taskSet = TaskSet(data=data, active_backups=0)
 
-    # Construct CoreSet(m, num_faulty, lambda_c, lambda_b, lambda_r)
-    coreSet = CoreSet()
+    # Construct CoreSet(m, num_faulty, bursty_chance, fault_period_scaler, lambda_c, lambda_b, lambda_r)
+    coreSet = CoreSet(m=2)
 
     taskSet.printTasks()
     taskSet.printJobs()

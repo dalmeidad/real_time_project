@@ -45,8 +45,9 @@ class TaskSet(object):
         self.passive_backups = self.jobs
         primary_and_actives = self.jobs
         counter = active_backups
-        while active_backups is not 0:
+        while counter is not 0:
             primary_and_actives += self.jobs
+            counter = counter - 1
         self.jobs = primary_and_actives
 
     def parseDataToTasks(self, data):
