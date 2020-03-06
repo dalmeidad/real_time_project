@@ -130,6 +130,11 @@ class FtmGedfScheduler(SchedulerAlgorithm):
             coresToBursty[core.id] = False
             corePermFail[core.id] = False
 
+        #track if a task.id and job.id have completed for removal of jobs from passive backup and queue
+        taskjobComplete = {}
+
+        for job in self.taskSet.passive_backups: #use passive backups because it's jobs without duplicates
+            taskjobComplete = False
 
         # Loop until the priority queue is empty, executing jobs preemptively in edf order
         while not self.priorityQueue.isEmpty():
@@ -137,25 +142,28 @@ class FtmGedfScheduler(SchedulerAlgorithm):
             #currently each core can have a different lB and lG. Can be easily changed to identical
             print("At time {0}".format(time))
             for core in self.coreSet:
-                if core.is_faulty:
+                if core.is_faulty and not corePermFail[core.id]:
                     if time == coreLastFaultPeriodStart[core.id] + sum(coreFaultPeriods[core.id]):
                         coreLastFaultPeriodStart[core.id] = time
                         newLB = self.coreset.getLB()
                         newLG = self.coreset.getLG()
                         coreFaultPeriods[core.id] = (newLB, newLG)
                     coresToBursty[core.id] = time < coreLastFaultPeriod + coreFaultPeriods[core.id][0] #lB
-                cutoff = random.random()
-                if cutoff < core.coreSet.lambda_c:
-                    corePermFail[core.id] = True
-                    core.deactivate()
-                elif (coresToBursty[core.id] and cutoff < core.coreSet.lambda_b) or \
-                     (not coresToBursty[core.id] and cutoff < core.coreSet.lambda_r):
-                    core.deactivate()
-                else:
-                    core.activate()
+                    
+                    cutoff = random.random()
+                    #check permanent fails
+                    if cutoff < core.coreSet.lambda_c:
+                        corePermFail[core.id] = True
+                        core.deactivate()
+                    elif (coresToBursty[core.id] and cutoff < core.coreSet.lambda_b) or \
+                        (not coresToBursty[core.id] and cutoff < core.coreSet.lambda_r):
+                        core.deactivate()
+                    else:
+                        core.activate()
                 print(core)
             #TODO: need a way to keep permFailCores from doing anything
             #TODO: track finished jobs and remove unreleased ones from queue
+            #TODO: passive backups are when none are executing on cores or in the queue
             # for iterating through cores by Id
             coreListIds = [core.id for core in self.coreSet if not corePermFail[core.id]]
             #build schedule from the queue
@@ -261,10 +269,10 @@ if __name__ == "__main__":
     with open(file_path) as json_data:
         data = json.load(json_data)
 
-    taskSet = TaskSet(data=data, active_backups=0)
+    taskSet = TaskSet(data=data, active_backups=1)
 
     # Construct CoreSet(m, num_faulty, bursty_chance, fault_period_scaler, lambda_c, lambda_b, lambda_r)
-    coreSet = CoreSet(m=2)
+    coreSet = CoreSet(m=1)
 
     taskSet.printTasks()
     taskSet.printJobs()
