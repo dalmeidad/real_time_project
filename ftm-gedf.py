@@ -144,15 +144,15 @@ class FtmGedfScheduler(SchedulerAlgorithm):
                         newLG = self.coreset.getLG()
                         coreFaultPeriods[core.id] = (newLB, newLG)
                     coresToBursty[core.id] = time < coreLastFaultPeriod + coreFaultPeriods[core.id][0] #lB
-                cutoff = random.random()
-                if cutoff < core.coreSet.lambda_c:
-                    corePermFail[core.id] = True
-                    core.deactivate()
-                elif (coresToBursty[core.id] and cutoff < core.coreSet.lambda_b) or \
-                     (not coresToBursty[core.id] and cutoff < core.coreSet.lambda_r):
-                    core.deactivate()
-                else:
-                    core.activate()
+                    cutoff = random.random()
+                    if cutoff < core.coreSet.lambda_c:
+                        corePermFail[core.id] = True
+                        core.deactivate()
+                    elif (coresToBursty[core.id] and cutoff < core.coreSet.lambda_b) or \
+                        (not coresToBursty[core.id] and cutoff < core.coreSet.lambda_r):
+                        core.deactivate()
+                    else:
+                        core.activate()
                 print(core)
             #TODO: need a way to keep permFailCores from doing anything
             #TODO: track finished jobs and remove unreleased ones from queue
@@ -261,10 +261,10 @@ if __name__ == "__main__":
     with open(file_path) as json_data:
         data = json.load(json_data)
 
-    taskSet = TaskSet(data=data, active_backups=0)
+    taskSet = TaskSet(data=data, active_backups=1)
 
     # Construct CoreSet(m, num_faulty, bursty_chance, fault_period_scaler, lambda_c, lambda_b, lambda_r)
-    coreSet = CoreSet(m=2)
+    coreSet = CoreSet(m=4)
 
     taskSet.printTasks()
     taskSet.printJobs()
