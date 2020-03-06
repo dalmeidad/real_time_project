@@ -577,8 +577,10 @@ class SchedulingDisplay(object):
         for (i, interval) in enumerate(reversed(self.scheduleData.intervals)):
             if interval.taskId == 0:
                 continue
-
+            
             color = ((interval.taskId * 50 % 255), (interval.taskId * 50 % 255), 0)
+            if interval.taskId == -1:
+                color = (200,0,0)
             intervalRect = IntervalRectCores(interval, scheduleStartTime, scheduleEndTime, numCores, self.width, self.height, color)
             intervalRect.draw(self.background)
 

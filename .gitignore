@@ -4,6 +4,6 @@
 **/*.spv
 **/*.o
 **/*.out
-**/*.pyc
+**/*.pyc*
 __pycache__/
 .idea/

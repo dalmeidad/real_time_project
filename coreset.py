@@ -90,6 +90,12 @@ class CoreSet(object):
     def getLG(self):
         return np.random.geometric(lGapProb)*bursty_scale
 
+    def __contains__(self, job):
+        for core in list(self.cores.values()):
+            if core.job is not None and core.job.id is job.id and core.job.task.id is job.task.id:
+                return True
+        return False
+
 
 class Core(object):
     def __init__(self, core_id, is_faulty, core_set):
@@ -129,9 +135,6 @@ class Core(object):
                 self.is_executing = True
             return True
         return False
-
-    def getIsActive(self):
-        return self.is_active
 
     def deactivate(self):
         if self.is_faulty:

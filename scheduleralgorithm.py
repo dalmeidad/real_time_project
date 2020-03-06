@@ -73,6 +73,12 @@ class PriorityQueue(object):
     def popPreemptingJob(self, t, job):
         raise NotImplementedError
 
+    def __contains__(self, job):
+        for q in self.jobs:
+            if q.id is job.id and q.task.id is job.task.id:
+                return True
+        return False
+
 class SchedulerAlgorithm(object):
     def __init__(self, taskSet, coreSet):
         self.taskSet = taskSet

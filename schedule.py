@@ -99,6 +99,7 @@ class Schedule(object):
         failInterval = ScheduleInterval()
         #TODO:make sure this works later.... maybe did preempt previous should be false?
         failInterval.initialize(startTime, endTime, -1, True, coreId)
+        self.intervals.append(failInterval)
 
 
 
