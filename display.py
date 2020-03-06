@@ -308,9 +308,11 @@ class IntervalRectCores(object):
         plotBottom = h - BUFFER_BOTTOM
         coreHeight = plotHeight / numCores
 
-        intervalBottom = plotBottom - int(numCores - ((interval.coreId-1) * coreHeight))
+        intervalBottom = plotBottom - int(numCores - ((interval.coreId-(numCores-1)) * coreHeight))
         intervalHeight = int(coreHeight * 0.4)
         intervalTop = intervalBottom - intervalHeight
+
+        #print("numCores:", numCores, "; interval.coreId:", interval.coreId, "; intervalBottom:", intervalBottom)
 
         totalTime = endTime - startTime
         p1x = int(float(interval.startTime - startTime) / totalTime * (w-BUFFER_LEFT-BUFFER_RIGHT)) + BUFFER_LEFT
