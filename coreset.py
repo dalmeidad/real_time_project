@@ -18,17 +18,17 @@ class CoreSetIterator:
         return self.coreSet.cores[key]
 
 class CoreSet(object):
-    def __init__(self, m=1, num_faulty=0, bursty_chance=0.0, fault_period_scaler=3, lambda_c=0.02, lambda_b=0.4, lambda_r=0.15):
+    def __init__(self, m=1, num_faulty=0, bursty_chance=0.40, fault_period_scaler=3, lambda_c=0.02, lambda_b=0.45, lambda_r=0.15):
         self.cores = {}
         self.m = m
         self.num_faulty = num_faulty
-        id = 0
+        coreId = 0
         for i in range(num_faulty):
-            self.cores[i] = Core(id, True, self)
-            id += 1
+            self.cores[coreId] = Core(coreId, True, self)
+            coreId += 1
         for i in range(m-num_faulty):
-            self.cores[i] = Core(id, False, self)
-            id += 1
+            self.cores[coreId] = Core(coreId, False, self)
+            coreId += 1
         self.lambda_c = lambda_c
         self.lambda_b = lambda_b
         self.lambda_r = lambda_r
@@ -50,7 +50,7 @@ class CoreSet(object):
 
     def printCores(self):
         print("\nCore Set:")
-        for core in self.cores:
+        for core in self.cores.values():
             print(core)
 
     def getCoreById(self, core_id):
@@ -85,10 +85,10 @@ class CoreSet(object):
         return lowest_prio_core, True
 
     def getLB(self):
-        return np.random.geometric(lBurstProb)*bursty_scale
+        return np.random.geometric(self.lBurstProb)*self.fault_period_scaler
     
     def getLG(self):
-        return np.random.geometric(lGapProb)*bursty_scale
+        return np.random.geometric(self.lGapProb)*self.fault_period_scaler
 
     def __contains__(self, job):
         for core in list(self.cores.values()):

@@ -141,12 +141,12 @@ class FtmGedfScheduler(SchedulerAlgorithm):
             print("At time {0}".format(self.time))
             for core in self.coreSet:
                 if core.is_faulty and not corePermFail[core.id]:
-                    if time == coreLastFaultPeriodStart[core.id] + sum(coreFaultPeriods[core.id]):
-                        coreLastFaultPeriodStart[core.id] = time
-                        newLB = self.coreset.getLB()
-                        newLG = self.coreset.getLG()
+                    if self.time == coreLastFaultPeriodStart[core.id] + sum(coreFaultPeriods[core.id]):
+                        coreLastFaultPeriodStart[core.id] = self.time
+                        newLB = self.coreSet.getLB()
+                        newLG = self.coreSet.getLG()
                         coreFaultPeriods[core.id] = (newLB, newLG)
-                    coresToBursty[core.id] = time < coreLastFaultPeriod + coreFaultPeriods[core.id][0] #lB
+                    coresToBursty[core.id] = self.time < coreLastFaultPeriodStart[core.id] + coreFaultPeriods[core.id][0] #lB
                     
                     cutoff = random.random()
                     #check permanent fails
@@ -161,6 +161,7 @@ class FtmGedfScheduler(SchedulerAlgorithm):
                 print(core)
             # for iterating through cores by Id
             coreListIds = [core.id for core in self.coreSet]
+            print("Cores to Check: ", coreListIds)
             #build schedule from the queue
             while len(coreListIds) > 0:
                 # get the current lowest priority core of the remaining cores
@@ -210,7 +211,7 @@ class FtmGedfScheduler(SchedulerAlgorithm):
         for core in self.coreSet:
             previousJob = coresToJobs[core.id]
             cur_time = self.time
-            if previousJob is not None:
+            if previousJob is not None and previousJob is not -1:
                 while previousJob.remainingTime > 0:
                     job_complete = False
                     print(cur_time, previousJob, previousJob.remainingTime)
@@ -221,12 +222,12 @@ class FtmGedfScheduler(SchedulerAlgorithm):
                         previousJob.execute(1)
                     # Add the final idle interval
                     interval = ScheduleInterval()
-                    interval.intialize(cur_time, cur_time+1, previousJob, False, core.id, job_complete)
+                    interval.initialize(cur_time, cur_time+1, previousJob, False, core.id, job_complete)
                     self.schedule.addInterval(interval)
                     cur_time += 1
             # Add empty interval at end of each one
             finalInterval = ScheduleInterval()
-            finalInterval.intialize(cur_time, cur_time+1, None, False, core.id, False)
+            finalInterval.initialize(cur_time, cur_time+1, None, False, core.id, False)
             self.schedule.addInterval(finalInterval)
 
 
@@ -265,7 +266,7 @@ class FtmGedfScheduler(SchedulerAlgorithm):
         # update core job
         lowest_core.setJob(newJob)
         # initialize interval
-        interval.intialize(t, t+1, newJob, didPreemptPrevious, lowest_core.id, willFinish)
+        interval.initialize(t, t+1, newJob, didPreemptPrevious, lowest_core.id, willFinish)
 
         return interval, newJob, willFinish
 
@@ -287,7 +288,8 @@ if __name__ == "__main__":
     taskSet = TaskSet(data=data, active_backups=1)
 
     # Construct CoreSet(m, num_faulty, bursty_chance, fault_period_scaler, lambda_c, lambda_b, lambda_r)
-    coreSet = CoreSet(m=4)
+    coreSet = CoreSet(m=4, num_faulty=3)
+    coreSet.printCores()
 
     taskSet.printTasks()
     taskSet.printJobs()
@@ -301,8 +303,8 @@ if __name__ == "__main__":
     # schedule.checkWcets()
     # schedule.checkFeasibility()
 
-    displayTasks = SchedulingDisplay(width=800, height=480, fps=33, scheduleData=schedule, display_type='tasks')
+    displayTasks = SchedulingDisplay(width=1200, height=480, fps=33, scheduleData=schedule, display_type='tasks')
     displayTasks.run()
 
-    displayCores = SchedulingDisplay(width=800, height=480, fps=33, scheduleData=schedule, display_type='cores')
+    displayCores = SchedulingDisplay(width=1200, height=480, fps=33, scheduleData=schedule, display_type='cores')
     displayCores.run()

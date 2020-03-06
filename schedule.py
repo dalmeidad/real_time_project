@@ -97,8 +97,7 @@ class Schedule(object):
 
     def addFailInterval(self, startTime, endTime, coreId):
         failInterval = ScheduleInterval()
-        #TODO:make sure this works later.... maybe did preempt previous should be false?
-        failInterval.initialize(startTime, endTime, -1, True, coreId)
+        failInterval.initialize(startTime, endTime, -1, False, coreId, False)
         self.intervals.append(failInterval)
 
 
@@ -180,15 +179,14 @@ class ScheduleInterval(object):
         #self.endTime = endTime
         self.jobCompleted = didJobComplete and not self.taskId == 0 # "idle" jobs don't complete
 
-    def intialize(self, startTime, endTime, job, didPreemptPrevious, coreId, jobCompleted):
+    def initialize(self, startTime, endTime, job, didPreemptPrevious, coreId, jobCompleted):
         self.startTime = startTime
 
-        if job is not None:
+        if job is -1: #handles Fail periods
+            self.taskId = -1
+        elif job is not None:
             self.taskId = job.task.id
             self.jobId = job.id
-        elif job is -1: #handles Fail periods
-            self.taskId = -1
-            self.taskId = -1
         else:
             self.taskId = 0
             self.jobId = -1
