@@ -288,7 +288,7 @@ if __name__ == "__main__":
     taskSet = TaskSet(data=data, active_backups=1)
 
     # Construct CoreSet(m, num_faulty, bursty_chance, fault_period_scaler, lambda_c, lambda_b, lambda_r)
-    coreSet = CoreSet(m=4, num_faulty=3)
+    coreSet = CoreSet(m=4, num_faulty=3, lambda_c=0.0)
     coreSet.printCores()
 
     taskSet.printTasks()
@@ -301,10 +301,10 @@ if __name__ == "__main__":
 
     # print("\n// Validating the schedule:")
     # schedule.checkWcets()
-    # schedule.checkFeasibility()
+    schedule.checkFeasibility()
 
-    displayTasks = SchedulingDisplay(width=1200, height=480, fps=33, scheduleData=schedule, display_type='tasks')
+    displayTasks = SchedulingDisplay(width=1200, height=700, fps=33, scheduleData=schedule, display_type='tasks')
     displayTasks.run()
 
-    displayCores = SchedulingDisplay(width=1200, height=480, fps=33, scheduleData=schedule, display_type='cores')
+    displayCores = SchedulingDisplay(width=1200, height=700, fps=33, scheduleData=schedule, display_type='cores')
     displayCores.run()

@@ -147,6 +147,7 @@ class Schedule(object):
                 deadline = job.deadline
                 finishTime = interval.endTime
                 if finishTime > deadline:
+                    print("Task {0} Job {1} - r: {2}, d: {3}, f:{4}".format(job.task.id, job.id, job.releaseTime, deadline, finishTime))
                     return False
         return True
 

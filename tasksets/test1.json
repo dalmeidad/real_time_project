@@ -15,6 +15,13 @@
             "wcet": 4,
             "deadline": 7,
             "offset": 0
+        },
+        {
+            "taskId": 3,
+            "period": 20,
+            "wcet": 8,
+            "deadline": 18,
+            "offset": 0
         }
     ]
-}
+}   
