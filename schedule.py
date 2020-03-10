@@ -99,8 +99,7 @@ class Schedule(object):
         failInterval = ScheduleInterval()
         failInterval.initialize(startTime, endTime, -1, False, coreId, False)
         self.intervals.append(failInterval)
-
-
+    
 
     def printIntervals(self, displayIdle=True):
         print("\nScheduling intervals:")

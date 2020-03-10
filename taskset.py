@@ -40,15 +40,10 @@ class TaskSetIterator:
 class TaskSet(object):
     def __init__(self, data, active_backups=0):
         self.parseDataToTasks(data)
-        self.buildJobReleases(data)
+        self.buildJobReleases(data, active_backups)
+        print(self.jobs)
         self.num_active_backups = active_backups
         self.passive_backups = self.jobs
-        primary_and_actives = self.jobs
-        counter = active_backups
-        while counter is not 0:
-            primary_and_actives += self.jobs
-            counter = counter - 1
-        self.jobs = primary_and_actives
 
     def parseDataToTasks(self, data):
         taskSet = {}
@@ -68,28 +63,32 @@ class TaskSet(object):
 
         self.tasks = taskSet
 
-    def buildJobReleases(self, data):
+    def buildJobReleases(self, data, active_backups):
         jobs = []
 
-        if TaskSetJsonKeys.KEY_RELEASETIMES in data: # necessary for sporadic releases
+        if TaskSetJsonKeys.KEY_RELEASETIMES in data:  # necessary for sporadic releases
             for jobRelease in data[TaskSetJsonKeys.KEY_RELEASETIMES]:
-                releaseTime = float(jobRelease[TaskSetJsonKeys.KEY_RELEASETIMES_JOBRELEASE])
-                taskId = int(jobRelease[TaskSetJsonKeys.KEY_RELEASETIMES_TASKID])
+                # add extra jobs to job list for backups
+                for i in range(active_backups+1):
+                    releaseTime = float(jobRelease[TaskSetJsonKeys.KEY_RELEASETIMES_JOBRELEASE])
+                    taskId = int(jobRelease[TaskSetJsonKeys.KEY_RELEASETIMES_TASKID])
 
-                job = self.getTaskById(taskId).spawnJob(releaseTime)
-                jobs.append(job)
+                    job = self.getTaskById(taskId).spawnJob(releaseTime)
+                    jobs.append(job)
         else:
             scheduleStartTime = float(data[TaskSetJsonKeys.KEY_SCHEDULE_START])
             scheduleEndTime = float(data[TaskSetJsonKeys.KEY_SCHEDULE_END])
             for task in self:
                 t = max(task.offset, scheduleStartTime)
                 while t < scheduleEndTime:
-                    job = task.spawnJob(t)
-                    if job is not None:
-                        jobs.append(job)
+                    # add extra jobs to job list for backups
+                    for i in range(active_backups+1):
+                        job = task.spawnJob(t, active_backups)
+                        if job is not None:
+                            jobs.append(job)
 
                     if task.period >= 0:
-                        t += task.period    # periodic
+                        t += task.period # periodic
                     else:
                         t = scheduleEndTime # aperiodic
 
@@ -131,13 +130,13 @@ class Task(object):
 
         self.jobs = []
 
-    def spawnJob(self, releaseTime):
+    def spawnJob(self, releaseTime, num_backups):
         if self.lastReleasedTime > 0 and releaseTime < self.lastReleasedTime:
             print("INVALID: release time of job is not monotonic")
             return None
 
-        if self.lastReleasedTime > 0 and releaseTime < self.lastReleasedTime + self.period:
-            print("INVDALID: release times are not separated by period")
+        if self.lastReleasedTime > 0 and releaseTime < self.lastReleasedTime + self.period and num_backups == 0:
+            print("INVALID: release times are not separated by period")
             return None
 
         self.lastJobId += 1
