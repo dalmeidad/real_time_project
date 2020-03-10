@@ -112,6 +112,8 @@ class FtmGedfScheduler(SchedulerAlgorithm):
 
         self.time = 0.0
         self.schedule.startTime = self.time
+        self.allDeadlinesMet = True
+        self.missedJobs = []
 
         #job that is running on each core
         coresToJobs = {}
@@ -175,6 +177,7 @@ class FtmGedfScheduler(SchedulerAlgorithm):
                 if not core.is_active:
                     self.schedule.addFailInterval(self.time, self.time+1.0, core.id)
                     job = -1
+                    
                     #we don't have to do anything with previous job
                     #its just not on a core anymore and also isnt in the queue (or added back to the queue)
                 else:
@@ -190,13 +193,16 @@ class FtmGedfScheduler(SchedulerAlgorithm):
                     # Execute new job for 1 time step
                     if job:
                         if willFinish:
+                            if self.time >= job.deadline and not taskjobComplete[job]:
+                                self.allDeadlinesMet = False
+                                self.missedJobs.append(job)
                             job.executeToCompletion()
                             taskjobComplete[job] = True
                         else:
                             job.execute(1)
 
-                    # Add interval to the schedule
-                    self.schedule.addInterval(interval)
+                # Add interval to the schedule
+                self.schedule.addInterval(interval)
 
                 # Update the time and job
                 coresToJobs[core.id] = job
@@ -274,7 +280,22 @@ class FtmGedfScheduler(SchedulerAlgorithm):
         if (job in self.coreSet and job is not None) or job in self.priorityQueue:
             return False
         return True
-        
+
+    def doesMeetDeadlines(self):
+        """
+        Returns true if, for every job, either the primary or one of its backups
+        meets the deadline
+        """
+        return self.allDeadlinesMet
+
+    def printMissedJobs(self, numBackups):
+        """
+        Print missed jobs. We will integer divide job ids to know which primary job
+        it was associated with
+        """
+        for job in self.missedJobs:
+            print("task {0} job {5}: (Φ,T,C,D) = ({1}, {2}, {3}, {4})".format(job.task.id, job.task.offset, job.task.period, job.task.wcet,
+                                                                       job.deadline, ((job.id-1)//(numBackups+1)+1)))
         
 if __name__ == "__main__":
     if len(sys.argv) > 1:
@@ -300,10 +321,11 @@ if __name__ == "__main__":
 
     schedule.printIntervals(displayIdle=True)
 
-    if schedule.doesMeetDeadlines():
+    if ftm.doesMeetDeadlines():
         print("\nAll deadlines are met! :)")
     else:
-        print("\nA deadline was missed! :(")
+        print("\nA deadline was missed! :(\n")
+        ftm.printMissedJobs(taskSet.num_active_backups)
     
     displayTasks = SchedulingDisplay(width=1200, height=700, fps=33, scheduleData=schedule, display_type='tasks')
     displayTasks.run()
