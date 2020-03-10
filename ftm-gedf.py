@@ -177,7 +177,14 @@ class FtmGedfScheduler(SchedulerAlgorithm):
                 if not core.is_active:
                     self.schedule.addFailInterval(self.time, self.time+1.0, core.id)
                     job = -1
-                    
+                    # #remove job from system
+                    # self.priorityQueue.removeJob(previousJob)
+                    # if previousJob in taskjobComplete.keys():
+                    #     del taskjobComplete[previousJob]
+                    # #reset job's remaining time if it is added back into the system
+                    # if previousJob:
+                    #     previousJob.remainingTime = previousJob.task.wcet
+
                     #we don't have to do anything with previous job
                     #its just not on a core anymore and also isnt in the queue (or added back to the queue)
                 else:
@@ -185,7 +192,9 @@ class FtmGedfScheduler(SchedulerAlgorithm):
                     stillNeedToComplete = [job for job in taskjobComplete.keys() if taskjobComplete[job]==False]
                     for job in stillNeedToComplete:
                         if self.shouldReleasePassive(job):
+                            job.remainingTime = job.task.wcet
                             self.priorityQueue.addJob(job)
+                            taskjobComplete[job] = False
 
                     # Make a scheduling decision resulting in an interval
                     interval, job, willFinish = self._makeSchedulingDecision(self.time, previousJob, core)
@@ -201,8 +210,8 @@ class FtmGedfScheduler(SchedulerAlgorithm):
                         else:
                             job.execute(1)
 
-                # Add interval to the schedule
-                self.schedule.addInterval(interval)
+                    # Add interval to the schedule
+                    self.schedule.addInterval(interval)
 
                 # Update the time and job
                 coresToJobs[core.id] = job
@@ -307,10 +316,10 @@ if __name__ == "__main__":
         data = json.load(json_data)
 
     print(data)
-    taskSet = TaskSet(data=data, active_backups=1)
+    taskSet = TaskSet(data=data, active_backups=0)
 
     # Construct CoreSet(m, num_faulty, bursty_chance, fault_period_scaler, lambda_c, lambda_b, lambda_r)
-    coreSet = CoreSet(m=4, num_faulty=3, lambda_c=0.0)
+    coreSet = CoreSet(m=1, num_faulty=1, lambda_c=0.0)
     coreSet.printCores()
 
     taskSet.printTasks()

@@ -5,7 +5,7 @@
         {
             "taskId": 1,
             "period": 5,
-            "wcet": 6,
+            "wcet": 3,
             "deadline": 5,
             "offset": 0
         }

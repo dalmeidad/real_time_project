@@ -38,6 +38,12 @@ class PriorityQueue(object):
         self.jobs.append(job)
         self._sortQueue()
 
+    def removeJob(self, job):
+        if job in self.jobs:
+            self.jobs.remove(job)
+            return True
+        return False
+
     def getFirst(self, t):
         """
         Returns the job with highest priority at time t, or None
