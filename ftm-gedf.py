@@ -55,7 +55,7 @@ class EdfPriorityQueue(PriorityQueue):
             return previousJob, False
 
         Jobs.sort(key=lambda x: (x[1].deadline, x[1].task.id))
-        if previousJob and (Jobs[0][1].deadline > previousJob.deadline or
+        if previousJob and previousJob != -1 and (Jobs[0][1].deadline > previousJob.deadline or
                             (Jobs[0][1].deadline == previousJob.deadline and Jobs[0][1].task.id > previousJob.task.id)):
             return previousJob, False
 
@@ -99,6 +99,12 @@ class EdfPriorityQueue(PriorityQueue):
         hpJobs.sort(key = lambda x: (x[1].releaseTime, x[1].deadline, x[1].task.id))
         return self.jobs.pop(hpJobs[0][0]) # get the index from the tuple in the 0th position
 
+    def containsJobOrBackup(self, taskId, jobId):
+        for curJob in self.jobs:
+            if curJob.id == jobId and curJob.task.id == taskId:
+                return True
+        return False
+
 class FtmGedfScheduler(SchedulerAlgorithm):
     def __init__(self, taskSet, coreSet):
         SchedulerAlgorithm.__init__(self, taskSet, coreSet)
@@ -133,8 +139,8 @@ class FtmGedfScheduler(SchedulerAlgorithm):
 
         #track if a task.id and job.id have completed for removal of jobs from passive backup and queue
         taskjobComplete = {}
-        for job in self.taskSet.passive_backups: #use passive backups because it's jobs without duplicates
-            taskjobComplete[job] = False
+        for job in self.taskSet.jobs: #use job id (as all jobs and their backups have the same job id)
+            taskjobComplete[(job.task.id, job.id)] = False
 
         # Loop until the priority queue is empty, executing jobs preemptively in edf order
         while not self.priorityQueue.isEmpty():
@@ -160,11 +166,9 @@ class FtmGedfScheduler(SchedulerAlgorithm):
                         core.deactivate()
                     else:
                         core.activate()
-                print(core)
             # for iterating through cores by Id
             coreListIds = [core.id for core in self.coreSet]
-            print("Cores to Check: ", coreListIds)
-            #build schedule from the queue
+            # build schedule from the queue
             while len(coreListIds) > 0:
                 # get the current lowest priority core of the remaining cores
                 core, is_executing = self.coreSet.getLowestPriorityCoreGEDF(coreListIds)
@@ -177,36 +181,27 @@ class FtmGedfScheduler(SchedulerAlgorithm):
                 if not core.is_active:
                     self.schedule.addFailInterval(self.time, self.time+1.0, core.id)
                     job = -1
-                    # #remove job from system
-                    # self.priorityQueue.removeJob(previousJob)
-                    # if previousJob in taskjobComplete.keys():
-                    #     del taskjobComplete[previousJob]
-                    # #reset job's remaining time if it is added back into the system
-                    # if previousJob:
-                    #     previousJob.remainingTime = previousJob.task.wcet
-
-                    #we don't have to do anything with previous job
-                    #its just not on a core anymore and also isnt in the queue (or added back to the queue)
                 else:
                     #check if passive backups needs to be released into priority queue
                     stillNeedToComplete = [job for job in taskjobComplete.keys() if taskjobComplete[job]==False]
-                    for job in stillNeedToComplete:
-                        if self.shouldReleasePassive(job):
-                            job.remainingTime = job.task.wcet
-                            self.priorityQueue.addJob(job)
-                            taskjobComplete[job] = False
+                    for ids in stillNeedToComplete:
+                        taskId, jobId = ids[0], ids[1]
+                        if self.shouldReleasePassive(taskId, jobId):
+                            passiveJob = self.taskSet.copyJob(taskId, jobId)
+                            self.priorityQueue.addJob(passiveJob)
+                            taskjobComplete[(passiveJob.task.id, passiveJob.id)] = False
 
                     # Make a scheduling decision resulting in an interval
                     interval, job, willFinish = self._makeSchedulingDecision(self.time, previousJob, core)
 
                     # Execute new job for 1 time step
-                    if job:
+                    if job and job != -1:
                         if willFinish:
-                            if self.time >= job.deadline and not taskjobComplete[job]:
+                            if self.time >= job.deadline and not taskjobComplete[(job.task.id, job.id)]:
                                 self.allDeadlinesMet = False
                                 self.missedJobs.append(job)
                             job.executeToCompletion()
-                            taskjobComplete[job] = True
+                            taskjobComplete[(job.task.id, job.id)] = True
                         else:
                             job.execute(1)
 
@@ -229,7 +224,6 @@ class FtmGedfScheduler(SchedulerAlgorithm):
             if previousJob is not None and previousJob is not -1:
                 while previousJob.remainingTime > 0:
                     job_complete = False
-                    print(cur_time, previousJob, previousJob.remainingTime)
                     if previousJob.remainingTime <= 1:
                         previousJob.executeToCompletion()
                         job_complete = True
@@ -244,7 +238,6 @@ class FtmGedfScheduler(SchedulerAlgorithm):
             finalInterval = ScheduleInterval()
             finalInterval.initialize(cur_time, cur_time+1, None, False, core.id, False)
             self.schedule.addInterval(finalInterval)
-
 
         # Post-process the intervals to set the end time and whether the job completed
         latestDeadline = max([job.deadline for job in self.taskSet.jobs])
@@ -266,16 +259,16 @@ class FtmGedfScheduler(SchedulerAlgorithm):
 
         interval = ScheduleInterval()
         willFinish = False
-        if previousJob and previousJob.remainingTime == 0:
+        if previousJob and previousJob != -1 and previousJob.remainingTime == 0:
             previousJob = None
 
         # get lowest prio core
         # newJob == previousJob if previousJob has the highest priority
         newJob, didPreemptPrevious = self.priorityQueue.popJob(t, previousJob)
-        if newJob and newJob.remainingTime <= 1:
+        if newJob and newJob != -1 and newJob.remainingTime <= 1:
             willFinish = True
         # if preempted, add previous job back to queue
-        if didPreemptPrevious:
+        if didPreemptPrevious and previousJob and previousJob != -1:
             self.priorityQueue.addJob(previousJob)
 
         # update core job
@@ -285,10 +278,19 @@ class FtmGedfScheduler(SchedulerAlgorithm):
 
         return interval, newJob, willFinish
 
-    def shouldReleasePassive(self, job):
-        if (job in self.coreSet and job is not None) or job in self.priorityQueue:
-            return False
-        return True
+    def shouldReleasePassive(self, taskId, jobId):
+        '''
+        Checks if the original or a backup of a job is still either executing
+        or waiting to be executed
+        '''
+        shouldReleasePassive = True
+        for core in self.coreSet:
+            curJob = core.getJob()
+            if (curJob and curJob != -1) and curJob.task.id == taskId and curJob.id == jobId:
+                shouldReleasePassive = False
+        if self.priorityQueue.containsJobOrBackup(taskId, jobId):
+            shouldReleasePassive = False
+        return shouldReleasePassive
 
     def doesMeetDeadlines(self):
         """
@@ -297,14 +299,14 @@ class FtmGedfScheduler(SchedulerAlgorithm):
         """
         return self.allDeadlinesMet
 
-    def printMissedJobs(self, numBackups):
+    def printMissedJobs(self):
         """
         Print missed jobs. We will integer divide job ids to know which primary job
         it was associated with
         """
         for job in self.missedJobs:
-            print("task {0} job {5}: (Φ,T,C,D) = ({1}, {2}, {3}, {4})".format(job.task.id, job.task.offset, job.task.period, job.task.wcet,
-                                                                       job.deadline, ((job.id-1)//(numBackups+1)+1)))
+            print("task {0} job {5} backup {6}: (Φ,T,C,D) = ({1}, {2}, {3}, {4})".format(job.task.id, job.task.offset, job.task.period, job.task.wcet,
+                                                                       job.deadline, job.id, job.backupId))
         
 if __name__ == "__main__":
     if len(sys.argv) > 1:
@@ -316,10 +318,10 @@ if __name__ == "__main__":
         data = json.load(json_data)
 
     print(data)
-    taskSet = TaskSet(data=data, active_backups=0)
+    taskSet = TaskSet(data=data, active_backups=1)
 
     # Construct CoreSet(m, num_faulty, bursty_chance, fault_period_scaler, lambda_c, lambda_b, lambda_r)
-    coreSet = CoreSet(m=1, num_faulty=1, lambda_c=0.0)
+    coreSet = CoreSet(m=4, num_faulty=3, lambda_c=0.0)
     coreSet.printCores()
 
     taskSet.printTasks()
@@ -334,7 +336,7 @@ if __name__ == "__main__":
         print("\nAll deadlines are met! :)")
     else:
         print("\nA deadline was missed! :(\n")
-        ftm.printMissedJobs(taskSet.num_active_backups)
+        ftm.printMissedJobs()
     
     displayTasks = SchedulingDisplay(width=1200, height=700, fps=33, scheduleData=schedule, display_type='tasks')
     displayTasks.run()

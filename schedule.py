@@ -71,7 +71,7 @@ class Schedule(object):
                 oneMoreThanLastIndex = i+1
                 t = self.intervals[oneMoreThanLastIndex]
                 #find last index + 1
-                while s.taskId is t.taskId and s.jobId is t.jobId and s.coreId is t.coreId:
+                while s.taskId is t.taskId and s.jobId is t.jobId and s.coreId is t.coreId and s.backupId is s.backupId:
                     oneMoreThanLastIndex = oneMoreThanLastIndex+1
                     if oneMoreThanLastIndex < len(self.intervals):
                         t = self.intervals[oneMoreThanLastIndex]
@@ -174,9 +174,9 @@ class ScheduleInterval(object):
             self.didPreemptPrevious = False
             self.coreId = -1
             self.jobCompleted = False
+            self.backupId = -1
 
     def updateIntervalEnd(self, endTime, didJobComplete):
-        #self.endTime = endTime
         self.jobCompleted = didJobComplete and not self.taskId == 0 # "idle" jobs don't complete
 
     def initialize(self, startTime, endTime, job, didPreemptPrevious, coreId, jobCompleted):
@@ -187,6 +187,7 @@ class ScheduleInterval(object):
         elif job is not None:
             self.taskId = job.task.id
             self.jobId = job.id
+            self.backupId = job.backupId
         else:
             self.taskId = 0
             self.jobId = -1
@@ -208,7 +209,7 @@ class ScheduleInterval(object):
         elif self.isFail():
             return "interval [{0},{1}): core {4} is INACTIVE(completed: {2}, preempted previous: {3})".format(self.startTime, self.endTime, self.jobCompleted, self.didPreemptPrevious, self.coreId)
         else:
-            return "interval [{0},{1}): core {6} is executing task {2}, job {3} (completed: {4}, preempted previous: {5})".format(self.startTime, self.endTime, self.taskId, self.jobId, self.jobCompleted, self.didPreemptPrevious, self.coreId)
+            return "interval [{0},{1}): core {6} is executing task {2}, job {3}, backupId {7} (completed: {4}, preempted previous: {5})".format(self.startTime, self.endTime, self.taskId, self.jobId, self.jobCompleted, self.didPreemptPrevious, self.coreId, self.backupId)
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

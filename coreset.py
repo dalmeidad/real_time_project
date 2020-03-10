@@ -109,9 +109,9 @@ class Core(object):
     def __str__(self):
         if self.is_active and self.is_executing:
             if self.is_faulty:
-                return "Faulty core {0} is active and executing Task {1},{2}".format(self.id, self.job.task.id, self.job.id)
+                return "Faulty core {0} is active and executing Task {1},{2},{3}".format(self.id, self.job.task.id, self.job.id, self.job.backupId)
             else:
-                return "Stable core {0} is active and executing Task {1},{2}".format(self.id, self.job.task.id, self.job.id)
+                return "Stable core {0} is active and executing Task {1},{2},{3}".format(self.id, self.job.task.id, self.job.id, self.job.backupId)
         elif self.is_active:
             if self.is_faulty:
                 return "Faulty core {0} is active and not executing".format(self.id)
@@ -120,21 +120,20 @@ class Core(object):
         else:
             return "Faulty core {0} is not active".format(self.id)
 
-            
-
     def getJob(self):
         return self.job
 
     def setJob(self, job):
-        if self.is_active:
-            self.job = job
-            # If we set job as None, is_executing should be false
-            if job is None:
-                self.is_executing = False
-            else:
-                self.is_executing = True
-            return True
-        return False
+        if job == -1:
+            self.is_active = False
+            self.is_executing = False
+        elif job is None: # If we set job as None, is_executing should be false
+            self.is_executing = False
+            self.is_active = True
+        else:
+            self.is_executing = True
+            self.is_active = True
+        self.job = job
 
     def deactivate(self):
         if self.is_faulty:

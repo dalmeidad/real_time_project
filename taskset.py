@@ -40,10 +40,17 @@ class TaskSetIterator:
 class TaskSet(object):
     def __init__(self, data, active_backups=0):
         self.parseDataToTasks(data)
-        self.buildJobReleases(data, active_backups)
+        self.buildJobReleases(data)
         print(self.jobs)
         self.num_active_backups = active_backups
-        self.passive_backups = self.jobs
+        self.backup_ids = {}
+        job_copies = []
+        for job in self.jobs:
+            self.backup_ids[job.id] = 1
+            for i in range(active_backups):
+                job_copies.append(self.copyJob(job.task.id, job.id))
+        for job in job_copies:
+            self.addNewJob(job)
 
     def parseDataToTasks(self, data):
         taskSet = {}
@@ -63,29 +70,25 @@ class TaskSet(object):
 
         self.tasks = taskSet
 
-    def buildJobReleases(self, data, active_backups):
+    def buildJobReleases(self, data):
         jobs = []
 
         if TaskSetJsonKeys.KEY_RELEASETIMES in data:  # necessary for sporadic releases
             for jobRelease in data[TaskSetJsonKeys.KEY_RELEASETIMES]:
-                # add extra jobs to job list for backups
-                for i in range(active_backups+1):
-                    releaseTime = float(jobRelease[TaskSetJsonKeys.KEY_RELEASETIMES_JOBRELEASE])
-                    taskId = int(jobRelease[TaskSetJsonKeys.KEY_RELEASETIMES_TASKID])
+                releaseTime = float(jobRelease[TaskSetJsonKeys.KEY_RELEASETIMES_JOBRELEASE])
+                taskId = int(jobRelease[TaskSetJsonKeys.KEY_RELEASETIMES_TASKID])
 
-                    job = self.getTaskById(taskId).spawnJob(releaseTime)
-                    jobs.append(job)
+                job = self.getTaskById(taskId).spawnJob(releaseTime)
+                jobs.append(job)
         else:
             scheduleStartTime = float(data[TaskSetJsonKeys.KEY_SCHEDULE_START])
             scheduleEndTime = float(data[TaskSetJsonKeys.KEY_SCHEDULE_END])
             for task in self:
                 t = max(task.offset, scheduleStartTime)
                 while t < scheduleEndTime:
-                    # add extra jobs to job list for backups
-                    for i in range(active_backups+1):
-                        job = task.spawnJob(t, active_backups)
-                        if job is not None:
-                            jobs.append(job)
+                    job = task.spawnJob(t)
+                    if job is not None:
+                        jobs.append(job)
 
                     if task.period >= 0:
                         t += task.period # periodic
@@ -117,6 +120,26 @@ class TaskSet(object):
             for job in task.getJobs():
                 print(job)
 
+    def copyJob(self, taskId, jobId):
+        # copies job, increments backup id for copied job
+        backupId = self.backup_ids[jobId]
+        self.backup_ids[jobId] += 1
+        jobToCopy = None
+        for job in self.jobs:
+            if taskId == job.task.id and jobId == job.id:
+                jobToCopy = job
+        newJob = jobToCopy.createCopy(backupId)
+        if not jobToCopy:
+            raise Exception("Tried to copy job that didn't exist in taskset")
+        return newJob
+
+    def addNewJob(self, newJob):
+        # adds new job to self.jobs and to the task's job list
+        self.jobs.append(newJob)
+        for task in self.tasks.values():
+            if task.id == newJob.task.id:
+                task.jobs.append(newJob)
+
 class Task(object):
     def __init__(self, taskDict):
         self.id = int(taskDict[TaskSetJsonKeys.KEY_TASK_ID])
@@ -130,19 +153,19 @@ class Task(object):
 
         self.jobs = []
 
-    def spawnJob(self, releaseTime, num_backups):
+    def spawnJob(self, releaseTime):
         if self.lastReleasedTime > 0 and releaseTime < self.lastReleasedTime:
             print("INVALID: release time of job is not monotonic")
             return None
 
-        if self.lastReleasedTime > 0 and releaseTime < self.lastReleasedTime + self.period and num_backups == 0:
+        if self.lastReleasedTime > 0 and releaseTime < self.lastReleasedTime + self.period:
             print("INVALID: release times are not separated by period")
             return None
 
         self.lastJobId += 1
         self.lastReleasedTime = releaseTime
 
-        job = Job(self, self.lastJobId, releaseTime)
+        job = Job(self, self.lastJobId, releaseTime, backupId=0)
 
         self.jobs.append(job)
         return job
@@ -168,13 +191,14 @@ class Task(object):
         return "task {0}: (Φ,T,C,D) = ({1}, {2}, {3}, {4})".format(self.id, self.offset, self.period, self.wcet, self.relativeDeadline)
 
 class Job(object):
-    def __init__(self, task, jobId, releaseTime):
+    def __init__(self, task, jobId, releaseTime, backupId, remainingTime=None):
         self.task = task
         self.id = jobId
         self.releaseTime = releaseTime
         self.deadline = releaseTime + task.relativeDeadline
 
         self.remainingTime = self.task.wcet
+        self.backupId = backupId
 
     def execute(self, time):
         executionTime = min(self.remainingTime, time)
@@ -187,8 +211,11 @@ class Job(object):
     def isCompleted(self):
         return self.remainingTime == 0
 
+    def createCopy(self, backupId):
+        return Job(self.task, self.id, self.releaseTime, backupId)
+
     def __str__(self):
-        return "[{0}:{1}] released at {2} -> deadline at {3}".format(self.task.id, self.id, self.releaseTime, self.deadline)
+        return "[{0}:{1}:{4}] released at {2} -> deadline at {3}".format(self.task.id, self.id, self.releaseTime, self.deadline,self.backupId)
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
