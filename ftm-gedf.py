@@ -285,6 +285,7 @@ if __name__ == "__main__":
     with open(file_path) as json_data:
         data = json.load(json_data)
 
+    print(data)
     taskSet = TaskSet(data=data, active_backups=1)
 
     # Construct CoreSet(m, num_faulty, bursty_chance, fault_period_scaler, lambda_c, lambda_b, lambda_r)
@@ -299,10 +300,11 @@ if __name__ == "__main__":
 
     schedule.printIntervals(displayIdle=True)
 
-    # print("\n// Validating the schedule:")
-    # schedule.checkWcets()
-    schedule.checkFeasibility()
-
+    if schedule.doesMeetDeadlines():
+        print("\nAll deadlines are met! :)")
+    else:
+        print("\nA deadline was missed! :(")
+    
     displayTasks = SchedulingDisplay(width=1200, height=700, fps=33, scheduleData=schedule, display_type='tasks')
     displayTasks.run()
 
