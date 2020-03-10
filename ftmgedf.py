@@ -113,9 +113,6 @@ class FtmGedfScheduler(SchedulerAlgorithm):
 
     def buildSchedule(self, startTime, endTime):
         self._buildPriorityQueue(EdfPriorityQueue)
-
-        print()
-
         self.time = 0.0
         self.schedule.startTime = self.time
         self.allDeadlinesMet = True
@@ -146,7 +143,6 @@ class FtmGedfScheduler(SchedulerAlgorithm):
         while not self.priorityQueue.isEmpty():
             #set bursty periods 
             #currently each core can have a different lB and lG. Can be easily changed to identical
-            print("At time {0}".format(self.time))
             for core in self.coreSet:
                 if core.is_faulty and not corePermFail[core.id]:
                     if self.time == coreLastFaultPeriodStart[core.id] + sum(coreFaultPeriods[core.id]):

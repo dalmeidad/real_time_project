@@ -55,23 +55,28 @@ class TaskSet(object):
     def parseDataToTasks(self, data):
         taskSet = {}
 
-        for taskData in data[TaskSetJsonKeys.KEY_TASKSET]:
-            task = Task(taskData)
+        try:
+            for taskData in data[TaskSetJsonKeys.KEY_TASKSET]:
+                task = Task(taskData)
 
-            if task.id in taskSet:
-                print("Error: duplicate task ID: {0}".format(task.id))
-                return
+                if task.id in taskSet:
+                    print("Error: duplicate task ID: {0}".format(task.id))
+                    return
 
-            if task.period < 0 and task.relativeDeadline < 0:
-                print("Error: aperiodic task must have positive relative deadline")
-                return
+                if task.period < 0 and task.relativeDeadline < 0:
+                    print("Error: aperiodic task must have positive relative deadline")
+                    return
 
-            taskSet[task.id] = task
+                taskSet[task.id] = task
+        except:
+            self.tasks = data
+            return
 
         self.tasks = taskSet
 
     def buildJobReleases(self, data):
         jobs = []
+
 
         if TaskSetJsonKeys.KEY_RELEASETIMES in data:  # necessary for sporadic releases
             for jobRelease in data[TaskSetJsonKeys.KEY_RELEASETIMES]:
