@@ -223,6 +223,14 @@ class FtmGedfScheduler(SchedulerAlgorithm):
                     if previousJob.remainingTime <= 1:
                         previousJob.executeToCompletion()
                         job_complete = True
+                        if cur_time >= previousJob.deadline:
+                            should_add = True
+                            self.allDeadlinesMet = False
+                            for job in self.missedJobs:
+                                if job.id == previousJob.id and job.task.id == previousJob.task.id:
+                                    should_add = False
+                                if should_add:
+                                    self.missedJobs.append(previousJob)
                     else:
                         previousJob.execute(1)
                     # Add the final idle interval

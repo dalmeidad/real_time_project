@@ -46,7 +46,7 @@ class TaskSet(object):
         self.backup_ids = {}
         job_copies = []
         for job in self.jobs:
-            self.backup_ids[job.id] = 1
+            self.backup_ids[(job.task.id,job.id)] = 1
             for i in range(active_backups):
                 job_copies.append(self.copyJob(job.task.id, job.id))
         for job in job_copies:
@@ -127,8 +127,8 @@ class TaskSet(object):
 
     def copyJob(self, taskId, jobId):
         # copies job, increments backup id for copied job
-        backupId = self.backup_ids[jobId]
-        self.backup_ids[jobId] += 1
+        backupId = self.backup_ids[(taskId,jobId)]
+        self.backup_ids[(taskId,jobId)] += 1
         jobToCopy = None
         for job in self.jobs:
             if taskId == job.task.id and jobId == job.id:
