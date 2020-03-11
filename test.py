@@ -14,65 +14,76 @@ def plotResults(vals, results):
 
     for (styleId, label) in enumerate(results):
         yvals = results[label]
-        plt.plot(utilVals, yvals, LINE_STYLE[styleId], label=label)
+        plt.plot(vals, yvals, LINE_STYLE[styleId], label=label)
 
         # print("Results for {0}: {1}".format(label, yvals))
 
     plt.legend(loc="best")
 
-    plt.xlabel("System Utilization")
-    plt.ylabel("RM Schedulability")
-    plt.title("RM Schedulability for Different Utilization Distributions")
+    plt.xlabel("Number of backups")
+    plt.ylabel("FTS-GEDF Schedulability")
+    plt.title("Number of backups for different task systems")
 
     plt.show()
 
 if __name__=='__main__':
-    file_path1 = "tasksets/test1.json"
-    file_path2 = "tasksets/test2.json"
-    file_path3 = "tasksets/test3.json"
+    file_path1 = "tasksets/test4.json"
+    file_path2 = "tasksets/test5.json"
+    file_path3 = "tasksets/test7.json"
 
     # test on different tasksets
+    data = []
     with open(file_path1) as json_data:
-        data1 = json.load(json_data)
+        data.append(json.load(json_data))
     with open(file_path2) as json_data:
-        data2 = json.load(json_data)
+        data.append(json.load(json_data))
     with open(file_path3) as json_data:
-        data3 = json.load(json_data)
+        data.append(json.load(json_data))
+
+    different_num_backups = [1,2,3,4,5,6,7,8,9,10]
 
     # test changing number of backups
-    for i in range(1,2):
-        taskSet1 = TaskSet(data=data1, active_backups=i)
-        taskSet2 = TaskSet(data=data2, active_backups=i)
-        taskSet3 = TaskSet(data=data3, active_backups=i)
+    dataSets = {}
+    different_data_sets = ['short short short long', 'all short', 'all long']
+    for dataSet in different_data_sets:
+        dataSets[dataSet] = []
 
-    # test changing number of cores
-    for i in range(4,5):
-        # Construct CoreSet(m, num_faulty, bursty_chance, fault_period_scaler, lambda_c, lambda_b, lambda_r)
-        coreSet = CoreSet(m=i, num_faulty=3, lambda_c=0.0)
 
-    # test changing number of faulty cores
-    for i in range(3,4):
-        coreSet = CoreSet(m=4, num_faulty=i, lambda_c=0.0)
+    i = 0
+    for dataSet in data:
+        taskSets = []
+        coreSets = []
+        for j in different_num_backups:
+            taskSets.append(TaskSet(data=dataSet, active_backups=j))
+            coreSets.append(CoreSet(m=4, num_faulty=4, lambda_c=0.0))
+            dataSets[different_data_sets[i]].append((taskSets, coreSets))
+        i += 1
 
-    # test different bursty chance
-    for i in range(0):
-        coreSet = CoreSet(m=i, num_faulty=3, lambda_c=0.0, bursty_chance=i)
-
-    numTests = 1000
-    differentTests = ['2 cores, 3 cores, 4 cores']
+    numTests = 20
     results = {}
-    for i in range(len(differentTests)):
-        total = 0
-        for j in range(numTests):
-            ftm = f.FtmGedfScheduler(taskSet1, coreSet)
-            schedule = ftm.buildSchedule(0, 6)
-
-            if ftm.doesMeetDeadlines():
-                total += 1
-
-        results[differentTests[i]]
+    for dataSet in different_data_sets:
+        results[dataSet] = []
 
 
+    for dataSet in different_data_sets:
+        i = 0
+        for num_backup in different_num_backups:
+            total = 0
+            for j in range(numTests):
+                taskCore = dataSets[dataSet][i]
+                taskSet = taskCore[0]
+                coreSet = taskCore[1]
+
+                ftm = f.FtmGedfScheduler(taskSet[0], coreSet[0])
+                schedule = ftm.buildSchedule(0, 50)
+
+                if ftm.doesMeetDeadlines():
+                    total += 1
+
+            results[dataSet].append(total / numTests)
+            i += 1
 
 
-    plotResults(vals=[2,3,4], results=results)
+
+    print(different_num_backups, results)
+    plotResults(vals=different_num_backups, results=results)
