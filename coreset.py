@@ -18,7 +18,8 @@ class CoreSetIterator:
         return self.coreSet.cores[key]
 
 class CoreSet(object):
-    def __init__(self, m=1, num_faulty=0, bursty_chance=0.3, fault_period_scaler=3, lambda_c=0.02, lambda_b=0.5, lambda_r=0.08):
+    def __init__(self, m=1, num_faulty=0, bursty_chance=0.3, fault_period_scaler=3,
+                 lambda_c=0.02, lambda_b=0.5, lambda_r=0.08):
         self.cores = {}
         self.m = m
         self.num_faulty = num_faulty
@@ -109,9 +110,11 @@ class Core(object):
     def __str__(self):
         if self.is_active and self.is_executing:
             if self.is_faulty:
-                return "Faulty core {0} is active and executing Task {1},{2},{3}".format(self.id, self.job.task.id, self.job.id, self.job.backupId)
+                return "Faulty core {0} is active and executing Task {1},{2},{3}".\
+                    format(self.id, self.job.task.id, self.job.id, self.job.backupId)
             else:
-                return "Stable core {0} is active and executing Task {1},{2},{3}".format(self.id, self.job.task.id, self.job.id, self.job.backupId)
+                return "Stable core {0} is active and executing Task {1},{2},{3}".\
+                    format(self.id, self.job.task.id, self.job.id, self.job.backupId)
         elif self.is_active:
             if self.is_faulty:
                 return "Faulty core {0} is active and not executing".format(self.id)
